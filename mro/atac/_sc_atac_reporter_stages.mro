@@ -1,0 +1,51 @@
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+filetype json;
+filetype html;
+filetype csv;
+filetype h5;
+filetype bam;
+
+stage SUMMARIZE_REPORTS_SINGLECELL(
+    in  string reference_path,
+    in  json   complexity_summary,
+    in  json   cell_calling_summary,
+    in  json   peak_results,
+    in  json   basic_results,
+    in  json   error_results_summary,
+    in  json   insert_summary,
+    in  json   singlecell_results,
+    in  json   contam_results,
+    in  json   downsample_info,
+    in  json   enrichment_results,
+    out json   analysis_params,
+    out json   summary,
+    out csv    summary_csv,
+    src py     "stages/reporter/summarize_reports_singlecell",
+) using (
+    mem_gb = 4,
+)
+
+stage CREATE_WEBSUMMARY(
+    in  string reference_path,
+    in  string barcode_whitelist,
+    in  json   summary_results,
+    in  json   bulk_complexity,
+    in  json   singlecell_complexity,
+    in  string sample_id,
+    in  string sample_desc,
+    in  map[]  sample_def,
+    in  bool   debug,
+    in  csv    singlecell,
+    in  csv    insert_sizes,
+    in  csv    tss_relpos,
+    in  csv    ctcf_relpos,
+    in  h5     filtered_peak_bc_matrix,
+    in  h5     analysis,
+    in  json   excluded_barcodes,
+    out html   web_summary,
+    src py     "stages/reporter/create_websummary",
+) using (
+    mem_gb = 16,
+)

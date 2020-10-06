@@ -1,0 +1,49 @@
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+
+filetype csv;
+filetype bed;
+filetype tsv.gz;
+filetype tsv.gz.tbi;
+
+stage ATAC_COUNTER_PREFLIGHT(
+    in  string   sample_id,
+    in  string   fastq_mode,
+    in  map[]    sample_def,
+    in  string   reference_path,
+    in  map      force_cells,
+    in  string[] factorization,
+    in  map      downsample,
+    in  bool     check_executables,
+    in  map      trim_def,
+    src py       "stages/preflight/atac_counter",
+) split (
+)
+
+stage ATAC_AGGR_PREFLIGHT(
+    in  string   sample_id,
+    in  string   reference_path,
+    in  csv      aggr_csv,
+    in  string   normalization,
+    in  string[] factorization,
+    in  bool     check_executables,
+    src py       "stages/preflight/atac_aggr",
+) split (
+)
+
+stage ATAC_REANALYZER_PREFLIGHT(
+    in  string     sample_id,
+    in  string     reference_path,
+    in  string     barcode_whitelist,
+    in  bed        peaks,
+    in  csv        parameters,
+    in  map        force_cells,
+    in  csv        cell_barcodes,
+    in  tsv.gz     fragments,
+    in  tsv.gz.tbi fragments_index,
+    in  csv        aggregation_csv,
+    in  bool       check_executables,
+    src py         "stages/preflight/atac_reanalyzer",
+) split (
+)

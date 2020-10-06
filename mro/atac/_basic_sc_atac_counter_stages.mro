@@ -1,0 +1,38 @@
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+filetype tsv.gz;
+filetype tsv.gz.tbi;
+filetype csv;
+filetype json;
+filetype bed;
+filetype pickle;
+filetype h5;
+
+stage GENERATE_PEAK_MATRIX(
+    in  string reference_path,
+    in  tsv.gz fragments,
+    in  bed    peaks,
+    out h5     raw_matrix,
+    out path   raw_matrix_mex,
+    src py     "stages/processing/generate_peak_matrix",
+) split (
+    in  file   barcodes,
+) using (
+    mem_gb   = 4,
+    # N.B. we don't explicitly need the fragment index
+    volatile = strict,
+)
+
+stage FILTER_PEAK_MATRIX(
+    in  h5   raw_matrix,
+    in  int  num_analysis_bcs,
+    in  int  random_seed,
+    in  csv  cell_barcodes,
+    out h5   filtered_matrix,
+    out path filtered_matrix_mex,
+    src py   "stages/processing/filter_peak_matrix",
+) split (
+) using (
+    volatile = strict,
+)

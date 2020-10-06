@@ -1,0 +1,95 @@
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+filetype tsv.gz;
+filetype tsv.gz.tbi;
+filetype bed;
+filetype bam;
+filetype csv;
+filetype json;
+filetype h5;
+filetype txt;
+filetype pickle;
+
+stage ESTIMATE_LIBRARY_COMPLEXITY(
+    in  json   sequencing_summary,
+    in  tsv.gz fragments,
+    in  csv    cell_barcodes,
+    out json   bulk_complexity,
+    out json   complexity_summary,
+    out json   singlecell_complexity,
+    src py     "stages/metrics/estimate_library_complexity",
+) split (
+    in  file   barcodes,
+) using (
+    mem_gb   = 6,
+    volatile = strict,
+)
+
+stage GENERATE_SEQUENCING_METRICS(
+    in  bam[] input,
+    out txt   misc_sm,
+    out json  summary,
+    src py    "stages/metrics/generate_sequencing_metrics",
+) split (
+    in  bam   chunk_bam,
+) using (
+    volatile = strict,
+)
+
+stage GENERATE_SINGLECELL_TARGETING(
+    in  tsv.gz     fragments,
+    in  tsv.gz.tbi fragments_index,
+    in  bed        peaks,
+    in  string     reference_path,
+    out csv        singlecell,
+    out json       summary,
+    out csv        tss_relpos,
+    out csv        ctcf_relpos,
+    src py         "stages/metrics/generate_singlecell_targeting",
+) split (
+    in  string     contig,
+    out int        read_count,
+    out pickle     target_counts_by_barcode,
+    out pickle     chunk_tss,
+    out pickle     chunk_ctcf,
+) using (
+    mem_gb   = 6,
+    volatile = strict,
+)
+
+stage MERGE_SINGLECELL_METRICS(
+    in  string reference_path,
+    in  csv    singlecell_mapping,
+    in  csv    singlecell_targets,
+    in  csv    singlecell_cells,
+    out csv    singlecell,
+    out json   summary,
+    src py     "stages/metrics/merge_singlecell_metrics",
+) using (
+    mem_gb   = 8,
+    volatile = strict,
+)
+
+stage REPORT_INSERT_SIZES(
+    in  tsv.gz fragments,
+    in  bool   exclude_non_nuclear,
+    in  string reference_path,
+    out csv    insert_sizes,
+    out json   insert_summary,
+    src py     "stages/metrics/report_insert_sizes",
+) split (
+    in  file   barcode,
+    out file   total,
+) using (
+    volatile = strict,
+)
+
+stage REPORT_TSS_CTCF(
+    in  csv  tss_relpos,
+    in  csv  ctcf_relpos,
+    out json summary_metrics,
+    src py   "stages/metrics/report_tss_ctcf",
+) using (
+    volatile = strict,
+)

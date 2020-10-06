@@ -1,0 +1,200 @@
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+@include "_sc_atac_analyzer.mro"
+@include "_basic_sc_atac_counter_stages.mro"
+@include "_atac_cloupe_stages.mro"
+@include "_toggle_cell_caller.mro"
+@include "_reanalysis_stages.mro"
+@include "_common_analysis_metric_stages.mro"
+@include "_preflight_stages.mro"
+
+filetype csv;
+filetype html;
+filetype json;
+filetype h5;
+filetype cloupe;
+filetype tsv.gz;
+filetype tsv.gz.tbi;
+
+pipeline SC_ATAC_REANALYZER(
+    in  string     sample_id,
+    in  string     sample_desc,
+    in  string     reference_path,
+    in  string     barcode_whitelist,
+    in  bed        peaks,
+    in  csv        parameters,
+    in  map        force_cells,
+    in  csv        cell_barcodes,
+    in  tsv.gz     fragments,
+    in  tsv.gz.tbi fragments_index,
+    in  csv        aggregation_csv,
+    out json       summary,
+    out csv        summary_csv,
+    out csv        singlecell,
+    out h5         raw_peak_bc_matrix,
+    out path       raw_peak_bc_matrix_mex,
+    out h5         filtered_peak_bc_matrix,
+    out path       filtered_peak_bc_matrix_mex,
+    out path       analysis_csv,
+    out html       web_summary,
+    out h5         filtered_tf_bc_matrix,
+    out path       filtered_tf_bc_matrix_mex,
+    out cloupe     cloupe,
+    out tsv        peak_annotation,
+    out tsv.gz     fragments,
+    out tsv.gz.tbi fragments_index,
+)
+{
+    call ATAC_REANALYZER_PREFLIGHT as ATAC_REANALYZER_PREFLIGHT_LOCAL(
+        sample_id         = self.sample_id,
+        reference_path    = self.reference_path,
+        barcode_whitelist = self.barcode_whitelist,
+        peaks             = self.peaks,
+        parameters        = self.parameters,
+        force_cells       = self.force_cells,
+        cell_barcodes     = self.cell_barcodes,
+        fragments         = self.fragments,
+        fragments_index   = self.fragments_index,
+        aggregation_csv   = self.aggregation_csv,
+        check_executables = false,
+    ) using (
+        local     = true,
+        preflight = true,
+    )
+
+    call ATAC_REANALYZER_PREFLIGHT(
+        sample_id         = self.sample_id,
+        reference_path    = self.reference_path,
+        barcode_whitelist = self.barcode_whitelist,
+        peaks             = self.peaks,
+        parameters        = self.parameters,
+        force_cells       = self.force_cells,
+        cell_barcodes     = self.cell_barcodes,
+        fragments         = self.fragments,
+        fragments_index   = self.fragments_index,
+        aggregation_csv   = self.aggregation_csv,
+        check_executables = true,
+    ) using (
+        preflight = true,
+    )
+
+    call PARSE_ANALYSIS_INPUTS(
+        parameters     = self.parameters,
+        reference_path = self.reference_path,
+        cell_barcodes  = self.cell_barcodes,
+    )
+
+    call _TOGGLE_CELL_CALLER(
+        fragments           = self.fragments,
+        fragments_index     = self.fragments_index,
+        peaks               = self.peaks,
+        force_cells         = self.force_cells,
+        reference_path      = self.reference_path,
+        barcode_whitelist   = self.barcode_whitelist,
+        input_cell_barcodes = PARSE_ANALYSIS_INPUTS.cell_barcodes,
+    )
+
+    call REGENERATE_ANALYSIS_METRICS(
+        reference_path  = self.reference_path,
+        peaks           = self.peaks,
+        cell_barcodes   = _TOGGLE_CELL_CALLER.cell_barcodes,
+        fragments       = self.fragments,
+        fragments_index = self.fragments_index,
+    )
+
+    call MERGE_ANALYSIS_METRICS(
+        reference_path = self.reference_path,
+        library_info   = null,
+        metrics        = [
+            _TOGGLE_CELL_CALLER.metrics,
+            REGENERATE_ANALYSIS_METRICS.regenerated_metrics,
+        ],
+    )
+
+    call GENERATE_PEAK_MATRIX(
+        reference_path = self.reference_path,
+        fragments      = self.fragments,
+        peaks          = self.peaks,
+    )
+
+    call FILTER_PEAK_MATRIX(
+        num_analysis_bcs = PARSE_ANALYSIS_INPUTS.num_analysis_bcs,
+        random_seed      = PARSE_ANALYSIS_INPUTS.random_seed,
+        cell_barcodes    = _TOGGLE_CELL_CALLER.cell_barcodes,
+        raw_matrix       = GENERATE_PEAK_MATRIX.raw_matrix,
+    )
+
+    call _SC_ATAC_ANALYZER(
+        peaks                   = self.peaks,
+        reference_path          = self.reference_path,
+        filtered_peak_bc_matrix = FILTER_PEAK_MATRIX.filtered_matrix,
+        factorization           = PARSE_ANALYSIS_INPUTS.factorization,
+        tsne_perplexity         = PARSE_ANALYSIS_INPUTS.tsne_perplexity,
+        tsne_max_dims           = PARSE_ANALYSIS_INPUTS.tsne_max_dims,
+        tsne_input_pcs          = PARSE_ANALYSIS_INPUTS.tsne_input_pcs,
+        tsne_max_iter           = PARSE_ANALYSIS_INPUTS.tsne_max_iter,
+        tsne_stop_lying_iter    = PARSE_ANALYSIS_INPUTS.tsne_stop_lying_iter,
+        tsne_mom_switch_iter    = PARSE_ANALYSIS_INPUTS.tsne_mom_switch_iter,
+        tsne_theta              = PARSE_ANALYSIS_INPUTS.tsne_theta,
+        random_seed             = PARSE_ANALYSIS_INPUTS.random_seed,
+        max_clusters            = PARSE_ANALYSIS_INPUTS.max_clusters,
+        neighbor_a              = PARSE_ANALYSIS_INPUTS.neighbor_a,
+        neighbor_b              = PARSE_ANALYSIS_INPUTS.neighbor_b,
+        graphclust_neighbors    = PARSE_ANALYSIS_INPUTS.graphclust_neighbors,
+        num_components          = PARSE_ANALYSIS_INPUTS.num_comps,
+        num_dr_bcs              = PARSE_ANALYSIS_INPUTS.num_dr_bcs,
+        num_dr_features         = PARSE_ANALYSIS_INPUTS.num_dr_features,
+    )
+
+    call CREATE_REANALYSIS_WEBSUMMARY(
+        reference_path          = self.reference_path,
+        barcode_whitelist       = self.barcode_whitelist,
+        sample_id               = self.sample_id,
+        sample_desc             = self.sample_desc,
+        singlecell              = REGENERATE_ANALYSIS_METRICS.singlecell,
+        analysis                = _SC_ATAC_ANALYZER.analysis,
+        summary_results         = MERGE_ANALYSIS_METRICS.metrics,
+        filtered_peak_bc_matrix = FILTER_PEAK_MATRIX.filtered_matrix,
+        debug                   = false,
+    )
+
+    call CLOUPE_PREPROCESS(
+        pipestance_type        = "SC_ATAC_REANALYZER_CS",
+        reference_path         = self.reference_path,
+        sample_id              = self.sample_id,
+        sample_desc            = self.sample_desc,
+        analysis               = _SC_ATAC_ANALYZER.analysis,
+        feature_barcode_matrix = _SC_ATAC_ANALYZER.feature_bc_matrix,
+        metrics_json           = null,
+        peaks                  = self.peaks,
+        fragments_index        = self.fragments_index,
+        aggregation_csv        = self.aggregation_csv,
+        gem_group_index_json   = null,
+        no_secondary_analysis  = false,
+    )
+
+    call COPY_INPUT_OUTPUT(
+        fragments       = self.fragments,
+        fragments_index = self.fragments_index,
+        aggr_csv        = self.aggregation_csv,
+    )
+
+    return (
+        raw_peak_bc_matrix          = GENERATE_PEAK_MATRIX.raw_matrix,
+        raw_peak_bc_matrix_mex      = GENERATE_PEAK_MATRIX.raw_matrix_mex,
+        filtered_peak_bc_matrix     = FILTER_PEAK_MATRIX.filtered_matrix,
+        filtered_peak_bc_matrix_mex = FILTER_PEAK_MATRIX.filtered_matrix_mex,
+        analysis_csv                = _SC_ATAC_ANALYZER.analysis_csv,
+        web_summary                 = CREATE_REANALYSIS_WEBSUMMARY.web_summary,
+        filtered_tf_bc_matrix       = _SC_ATAC_ANALYZER.filtered_tf_bc_matrix,
+        filtered_tf_bc_matrix_mex   = _SC_ATAC_ANALYZER.filtered_tf_bc_matrix_mex,
+        cloupe                      = CLOUPE_PREPROCESS.output_for_cloupe,
+        summary                     = MERGE_ANALYSIS_METRICS.metrics,
+        summary_csv                 = MERGE_ANALYSIS_METRICS.metrics_csv,
+        peak_annotation             = _SC_ATAC_ANALYZER.peak_annotation,
+        fragments                   = COPY_INPUT_OUTPUT.fragments,
+        fragments_index             = COPY_INPUT_OUTPUT.fragments_index,
+        singlecell                  = REGENERATE_ANALYSIS_METRICS.singlecell,
+    )
+}

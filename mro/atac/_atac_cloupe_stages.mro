@@ -1,0 +1,28 @@
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+filetype cloupe;
+filetype csv;
+filetype json;
+filetype h5;
+filetype bed;
+filetype tsv.gz.tbi;
+
+stage CLOUPE_PREPROCESS(
+    in  string     pipestance_type,
+    in  string     sample_id,
+    in  string     sample_desc,
+    in  string     reference_path,
+    in  h5         analysis,
+    in  h5         feature_barcode_matrix,
+    in  bed        peaks,
+    in  tsv.gz.tbi fragments_index,
+    in  json       metrics_json,
+    in  csv        aggregation_csv,
+    in  json       gem_group_index_json,
+    in  bool       no_secondary_analysis,
+    out cloupe     output_for_cloupe,
+    out json       gem_group_index_json,
+    src py         "stages/cloupe/atac_cloupe_preprocess",
+) split (
+)

@@ -1,0 +1,65 @@
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+@include "sc_atac_reanalyzer.mro"
+
+pipeline SC_ATAC_REANALYZER_CS(
+    in  string     sample_id,
+    in  string     sample_desc,
+    in  string     reference_path,
+    in  bed        peaks,
+    in  csv        parameters,
+    in  map        force_cells,
+    in  csv        cell_barcodes,
+    in  tsv.gz     fragments,
+    in  tsv.gz.tbi fragments_index,
+    in  csv        aggregation_csv,
+    out json       summary                      "Summary of all data metrics",
+    out csv        summary_csv                  "csv summarizing important metrics and values"  "summary.csv",
+    out csv        singlecell                   "Per-barcode fragment counts & metrics",
+    out h5         raw_peak_bc_matrix           "Raw peak barcode matrix in hdf5 format",
+    out path       raw_peak_bc_matrix_mex       "Raw peak barcode matrix in mex format"  "raw_peak_bc_matrix",
+    out h5         filtered_peak_bc_matrix      "Filtered peak barcode matrix in hdf5 format",
+    out path       filtered_peak_bc_matrix_mex  "Filtered peak barcode matrix in mex format"  "filtered_peak_bc_matrix",
+    out path       analysis_csv                 "Directory of analysis files"  "analysis",
+    out html       web_summary                  "HTML file summarizing aggregation analysis ",
+    out h5         filtered_tf_bc_matrix        "Filtered tf barcode matrix in hdf5 format",
+    out path       filtered_tf_bc_matrix_mex    "Filtered tf barcode matrix in mex format"  "filtered_tf_bc_matrix",
+    out cloupe     cloupe                       "Loupe Cell Browser input file",
+    out tsv        peak_annotation              "Annotation of peaks with genes",
+    out tsv.gz     fragments                    "Barcoded and aligned fragment file"  "fragments.tsv.gz",
+    out tsv.gz.tbi fragments_index              "Fragment file index"  "fragments.tsv.gz.tbi",
+)
+{
+    call SC_ATAC_REANALYZER(
+        sample_id         = self.sample_id,
+        sample_desc       = self.sample_desc,
+        reference_path    = self.reference_path,
+        barcode_whitelist = "737K-cratac-v1",
+        peaks             = self.peaks,
+        parameters        = self.parameters,
+        force_cells       = self.force_cells,
+        cell_barcodes     = self.cell_barcodes,
+        fragments         = self.fragments,
+        fragments_index   = self.fragments_index,
+        aggregation_csv   = self.aggregation_csv,
+    )
+
+    return (
+        raw_peak_bc_matrix          = SC_ATAC_REANALYZER.raw_peak_bc_matrix,
+        raw_peak_bc_matrix_mex      = SC_ATAC_REANALYZER.raw_peak_bc_matrix_mex,
+        filtered_peak_bc_matrix     = SC_ATAC_REANALYZER.filtered_peak_bc_matrix,
+        filtered_peak_bc_matrix_mex = SC_ATAC_REANALYZER.filtered_peak_bc_matrix_mex,
+        analysis_csv                = SC_ATAC_REANALYZER.analysis_csv,
+        web_summary                 = SC_ATAC_REANALYZER.web_summary,
+        filtered_tf_bc_matrix       = SC_ATAC_REANALYZER.filtered_tf_bc_matrix,
+        filtered_tf_bc_matrix_mex   = SC_ATAC_REANALYZER.filtered_tf_bc_matrix_mex,
+        cloupe                      = SC_ATAC_REANALYZER.cloupe,
+        summary                     = SC_ATAC_REANALYZER.summary,
+        summary_csv                 = SC_ATAC_REANALYZER.summary_csv,
+        peak_annotation             = SC_ATAC_REANALYZER.peak_annotation,
+        fragments                   = SC_ATAC_REANALYZER.fragments,
+        fragments_index             = SC_ATAC_REANALYZER.fragments_index,
+        singlecell                  = SC_ATAC_REANALYZER.singlecell,
+    )
+}

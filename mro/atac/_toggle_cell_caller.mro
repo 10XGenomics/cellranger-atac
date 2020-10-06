@@ -1,0 +1,51 @@
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+@include "_produce_cell_barcodes.mro"
+@include "_reanalysis_stages.mro"
+
+pipeline _TOGGLE_CELL_CALLER(
+    in  map        force_cells,
+    in  csv        input_cell_barcodes,
+    in  tsv.gz     fragments,
+    in  tsv.gz.tbi fragments_index,
+    in  bed        peaks,
+    in  string     reference_path,
+    in  string     barcode_whitelist,
+    out csv        cell_barcodes,
+    out json       metrics,
+)
+{
+    call DECIDE_CELL_CALLER(
+        force_cells         = self.force_cells,
+        input_cell_barcodes = self.input_cell_barcodes,
+    ) using (
+        volatile = true,
+    )
+
+    call _PRODUCE_CELL_BARCODES(
+        fragments         = self.fragments,
+        fragments_index   = self.fragments_index,
+        peaks             = self.peaks,
+        force_cells       = self.force_cells,
+        reference_path    = self.reference_path,
+        barcode_whitelist = self.barcode_whitelist,
+    ) using (
+        disabled = DECIDE_CELL_CALLER.disable_cell_calling,
+    )
+
+    call SELECT_CELLS(
+        selector       = DECIDE_CELL_CALLER.disable_cell_calling,
+        cell_barcodes1 = self.input_cell_barcodes,
+        cell_barcodes2 = _PRODUCE_CELL_BARCODES.cell_barcodes,
+        metrics1       = DECIDE_CELL_CALLER.cell_calling_metrics,
+        metrics2       = _PRODUCE_CELL_BARCODES.cell_calling_summary,
+    ) using (
+        volatile = true,
+    )
+
+    return (
+        cell_barcodes = SELECT_CELLS.cell_barcodes,
+        metrics       = SELECT_CELLS.metrics,
+    )
+}

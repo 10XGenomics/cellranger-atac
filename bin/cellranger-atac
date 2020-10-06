@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+# Main driver for all Cell Ranger ATAC subcommands.
+#
+
+PRODUCT=cellranger-atac
+SUBCMDS=(
+    mkfastq
+    --
+    count
+    aggr
+    reanalyze
+    --
+    mkref
+    --
+    testrun
+    upload
+    sitecheck
+)
+
+export TENX_SCRIPTDIR=$(dirname `readlink -f $0`)
+source $TENX_SCRIPTDIR/../tenkit/bin/common/_master

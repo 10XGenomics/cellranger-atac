@@ -1,0 +1,103 @@
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+filetype tsv.gz;
+filetype tsv.gz.tbi;
+filetype csv;
+filetype json;
+filetype bed;
+filetype pickle;
+filetype h5;
+filetype npy.gz;
+
+stage REMOVE_LOW_TARGETING_BARCODES(
+    in  bed        peaks,
+    in  tsv.gz     fragments,
+    in  tsv.gz.tbi fragments_index,
+    in  string     reference_path,
+    out json       barcode_counts,
+    out json       low_targeting_barcodes,
+    out json       low_targeting_summary,
+    out json       fragment_lengths,
+    out json       covered_bases,
+    src py         "stages/processing/cell_calling/remove_low_targeting_barcodes",
+) split (
+    in  string     contig,
+    out pickle     fragment_counts,
+    out pickle     targeted_counts,
+    out int        peak_coverage,
+) using (
+    mem_gb   = 4,
+    volatile = strict,
+)
+
+stage REMOVE_GEL_BEAD_DOUBLET_BARCODES(
+    in  tsv.gz     fragments,
+    in  tsv.gz.tbi fragments_index,
+    in  string     reference_path,
+    in  json       barcode_counts,
+    out json       gel_bead_doublet_barcodes,
+    out json       gel_bead_doublet_summary,
+    out csv        connect_matrix,
+    src py         "stages/processing/cell_calling/remove_gel_bead_doublet_barcodes",
+) split (
+    in  string     contig,
+    in  file       valid_barcodes,
+) using (
+   mem_gb = 4,
+   volatile = strict,
+)
+
+stage REMOVE_BARCODE_MULTIPLETS(
+    in  tsv.gz     fragments,
+    in  tsv.gz.tbi fragments_index,
+    in  string     reference_path,
+    in  string     barcode_whitelist,
+    in  json       barcode_counts,
+    out json       barcode_multiplets,
+    out json       barcode_multiplets_summary,
+    src py         "stages/processing/cell_calling/remove_barcode_multiplets",
+) split (
+    in  string     contig,
+    in  string     gem_group,
+    out npy.gz     part_a_linkage_matrix,
+    out npy.gz     part_b_linkage_matrix,
+) using (
+    mem_gb = 4,
+    volatile = strict,
+)
+
+stage MERGE_EXCLUDED_BARCODES(
+    in  json[] barcode_exclusions,
+    out json   excluded_barcodes,
+    src py     "stages/processing/cell_calling/merge_excluded_barcodes",
+)
+
+stage DETECT_CELL_BARCODES(
+    in  tsv.gz     fragments,
+    in  tsv.gz.tbi fragments_index,
+    in  string     barcode_whitelist,
+    in  json       excluded_barcodes,
+    in  map        force_cells,
+    in  string     reference_path,
+    in  bed        peaks,
+    out csv        cell_barcodes,
+    out csv        singlecell,
+    out json       cell_calling_summary,
+    src py         "stages/processing/cell_calling/detect_cell_barcodes",
+) split (
+    in  string     contig,
+    out pickle     barcode_counts,
+    out pickle     targeted_counts,
+    out int        fragment_depth,
+) using (
+    mem_gb   = 4,
+    volatile = strict,
+)
+
+# TODO: This should be in mro/common for general use
+stage MERGE_SUMMARY_METRICS(
+    in  json[] summary_jsons,
+    out json   merged_summary,
+    src py     "stages/processing/cell_calling/merge_summary_metrics",
+)

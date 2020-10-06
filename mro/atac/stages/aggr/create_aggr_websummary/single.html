@@ -1,0 +1,30 @@
+<div class="container">
+For guidance, please consult <a href="https://support.10xgenomics.com/interpreting-atac-web-summary" target="blank">"Interpreting Cell Ranger ATAC Web Summary Files"</a> or contact 10x Genomics Support (support@10xgenomics.com)
+    <!-- Hero metrics -->
+    <div class="row">
+        <div class="col">
+            <div data-key="annotated_cells" data-component="Metric"></div>
+        </div>
+        <div class="col">
+            <div data-key="median_fragments_per_cell" data-component="Metric"></div>
+        </div>
+        <div class="col">
+            <div data-key="frac_fragments_overlapping_targets" data-component="Metric"></div>
+            <div data-key="frac_cut_fragments_in_peaks" data-component="Metric"></div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col">
+            [[ include subtemplates/pipeline_info.html ]]
+        </div>
+        <div class="col">
+            [[ include subtemplates/sequencing_info.html ]]
+        </div>
+    </div>
+
+    [[ include subtemplates/aggregation.html ]]
+
+    [[ include subtemplates/clustering.html ]]
+
+</div>

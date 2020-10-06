@@ -1,0 +1,222 @@
+#!/usr/bin/env bash
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+# Cell Ranger ATAC common docopt strings and options processing functions.
+#
+
+source $TENX_SCRIPTDIR/../tenkit/bin/common/_includes
+
+# Overrides:
+read -d '' DOCOPT_OPTIONS_FASTQS <<EOF
+    --lanes=NUMS        Comma-separated lane numbers.
+    --indices=INDICES   Deprecated. Not needed with the output of
+    			$TENX_PRODUCT mkfastq, or bcl2fastq
+    --project=TEXT      Name of the project folder within a mkfastq or
+                            bcl2fastq-generated folder to pick FASTQs from.
+EOF
+
+read -d '' DOCOPT_OPTIONS_DOWNSAMPLING <<EOF
+    --downsample=GB     Downsample input FASTQs to approximately GB 
+                            gigabases of input sequence. Optional.
+EOF
+
+read -d '' DOCOPT_OPTIONS_ATAC <<EOF
+    --force-cells=N     Define the top N barcodes with the most reads as
+                            cells. N must be a positive integer <=
+                            20,000. Please consult the documentation
+                            before using this option. Optional.
+    --dim-reduce=MODE   Dimensionality reduction mode for clustering: 'lsa'
+                            (default), 'plsa', or 'pca'. Optional.
+EOF
+
+read -d '' DOCOPT_OPTIONS_REF_INFO <<EOF
+    --reference=PATH	Path of folder containing a 10x-compatible reference.
+    			    Required.
+EOF
+
+read -d '' DOCOPT_OPTIONS_SAMPLE_INFO <<EOF
+    --description=TEXT  More detailed sample description. Optional.
+EOF
+
+read -d '' DOCOPT_OPTIONS_AGGR <<EOF
+    --normalize=MODE    Library depth normalization mode.
+                            Valid values: depth, signal, none [default: depth].
+    --nosecondary       Disable secondary analysis, e.g. clustering. Optional.
+    --dim-reduce=MODE   Dimensionality reduction mode for clustering. Optional.
+    			    Valid values: lsa, plsa, pca [default: lsa]
+EOF
+
+read -d '' DOCOPT_OPTIONS_REANALYZE << EOF
+    --index=PATH               A tabix (.tbi) index corresponding to the input
+    				   fragments file. Specify this if the filename
+				   differs from that of the fragments file.
+				   Optional.
+    --params=PARAMS_CSV        A CSV file specifying analysis parameters.
+                                   Optional.
+    --barcodes=SINGLECELL_CSV  A CSV file formatted to contain barcode and
+    				   species specific columns. See the software
+				   support website page on singlecell for more
+				   details. Optional.
+    --agg=AGGREGATION_CSV      If the input matrix was produced by
+                                   '$TENX_PRODUCT aggr', you may pass the same
+                                   aggregation CSV in order to retain
+                                   per-library tag information in the
+                                   resulting .cloupe file. Optional.
+    --force-cells=NUM          Force pipeline to use this number of cells,
+                                   bypassing the cell detection algorithm.
+                                   Optional.
+EOF
+
+function process_options_sample_info {
+    # --description
+    if [ -n "$description" ]; then
+        sample_desc=\"$description\"
+    else
+        sample_desc=\"\"
+    fi
+}
+
+function process_options_force_cells {
+    # match integers
+    int_re='^[0-9]+$'
+
+    # --force_cells
+    # positive integer, <= 20000
+    if [ -n "$force_cells" ]; then
+        if [[ $force_cells =~ $int_re ]] && [ $force_cells -gt 0 ] && \
+            [ $force_cells -le 20000 ]
+        then
+            force_cells="{ \"default\":$force_cells}"
+        else
+            error "Argument force-cells must be an integer in the range [1,20000]."
+        fi
+    else
+        force_cells=null
+    fi
+}
+
+function process_options_factorization {
+    # factorizations
+    factor_re='^(lsa|plsa|pca)$'
+    if [ -n "$dim_reduce" ]; then
+        if [[ $dim_reduce =~ $factor_re ]]; then
+            factorization="[ \"$dim_reduce\" ]"
+        else
+            error "Argument dim-reduce must be one of: lsa, pca, and plsa."
+        fi
+    else
+        factorization="[ \"lsa\" ]"
+    fi
+}
+
+function process_options_reference {
+    # --reference
+    if [ -n "$reference" ]; then
+        reference_path=\"$(abspath $reference)\"
+    elif [ -n "$TENX_REFDATA" ]; then
+        reference_path=\"$(abspath $TENX_REFDATA)\"
+    else
+        error "You must specify the --reference argument"
+    fi
+}
+
+function process_options_cratac_reanalyze {
+    # mandatory
+    # --peaks
+    if [ -n "$peaks" ]; then
+        peaks=\"$(abspath $peaks)\"
+    fi
+
+    # --fragments
+    if [ -n "$fragments" ]; then
+        frags=\"$(abspath $fragments)\"
+    fi
+
+    process_options_sample_info
+    process_options_force_cells
+
+    # --params
+    if [ -n "$params" ]; then
+        params=\"$(abspath $params)\"
+    else
+        params=null
+    fi
+
+    # --agg
+    if [ -n "$agg" ]; then
+        aggregation_csv=\"$(abspath $agg)\"
+    else
+        aggregation_csv=null
+    fi
+
+    # --barcodes
+    if [ -n "$barcodes" ]; then
+        barcodes=\"$(abspath $barcodes)\"
+    else
+        barcodes=null
+    fi
+
+    # --index
+    if [ -n "$index" ]; then
+        frags_index=\"$(abspath $index)\"
+    else
+	frags_index=\"$(abspath $fragments).tbi\"
+    fi
+}
+
+function process_options_cratac_aggr {
+    # --csv
+    if [ -n "$csv" ]; then
+        aggregation_csv=\"$(abspath $csv)\"
+    fi
+
+    process_options_sample_info
+    process_options_factorization
+    
+    # --normalize
+    factor_re='^(none|depth|signal)$'
+    if [ -n "$normalize" ]; then
+        if [[ $normalize =~ $factor_re ]]; then
+      	    if [[ $normalize = "depth" ]]; then
+      	        normalization="\"unique\""
+	    fi
+       	    if [[ $normalize = "signal" ]]; then
+   	        normalization="\"signal_mean\""
+	    fi
+       	    if [[ $normalize = "none" ]]; then
+   	        normalization=null
+	    fi
+        else
+            error "Argument normalize must be one of: 'none','depth','signal'."
+        fi
+    else
+        normalization=null
+    fi
+
+    # docopt already handles booleans
+    # --nosecondary
+
+}
+
+function process_options_cratac {
+    process_options_sample_info
+    process_options_force_cells
+    process_options_factorization
+
+    # match 
+    # or try ^(?:[1-9]\d*|0)?(?:\.\d+)?$ 
+    float_re='^[^\-]?([0-9]*\.[0-9]+|[0-9]+)$'
+
+    # downsample
+    # positive floating point number
+    if [ -n "$downsample" ]; then
+        if [[ $downsample =~ $float_re ]] ; then
+            downsample="{ \"gigabases\": $downsample }"
+        else
+            error "Argument downsample must be a positive real number."
+        fi
+    else
+        downsample=null
+    fi
+}

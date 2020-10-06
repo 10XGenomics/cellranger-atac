@@ -1,0 +1,169 @@
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+filetype tsv;
+filetype h5;
+filetype pickle;
+filetype gz;
+filetype bed;
+filetype csv;
+
+stage ANALYZER_PREFLIGHT(
+    in  bed      peaks,
+    in  h5       filtered_peak_bc_matrix,
+    in  string[] factorization,
+    in  int      tsne_perplexity,
+    in  int      random_seed,
+    in  float    tsne_theta,
+    in  int      tsne_mom_switch_iter,
+    in  int      tsne_stop_lying_iter,
+    in  int      tsne_max_dims,
+    in  int      tsne_input_pcs,
+    in  int      tsne_max_iter,
+    in  int      max_clusters,
+    in  int      num_components,
+    in  int      num_dr_bcs,
+    in  int      num_dr_features,
+    in  float    neighbor_a,
+    in  float    neighbor_b,
+    in  int      graphclust_neighbors,
+    src py       "stages/preflight/atac_analyzer",
+)
+
+stage REDUCE_DIMENSIONS(
+    in  h5       filtered_matrix,
+    in  string[] factorization,
+    in  int      num_dims,
+    in  int      num_bcs,
+    in  int      num_features,
+    in  int      random_seed,
+    out path     reduced_data,
+    out map      reduction_summary,
+    src py       "stages/analysis/reduce_dimensions",
+) split (
+    in  string   method,
+) using (
+    volatile = strict,
+)
+
+stage CLUSTER_CELLS(
+    in  h5       filtered_matrix,
+    in  path     reduced_data,
+    in  map      reduction_summary,
+    in  string[] factorization,
+    in  int      minclusters,
+    in  int      maxclusters,
+    in  int      num_dims,
+    in  int      random_seed,
+    out path     clustered_data,
+    out map      clustering_summary,
+    src py       "stages/analysis/cluster_cells",
+) split (
+    in  int      n_clusters,
+) using (
+    volatile = strict,
+)
+
+stage PROJECT_TSNE(
+    in  h5       filtered_matrix,
+    in  path     reduced_data,
+    in  map      reduction_summary,
+    in  int      tsne_perplexity,
+    in  int      tsne_max_dims,
+    in  int      tsne_input_pcs,
+    in  float    tsne_theta,
+    in  int      tsne_max_iter,
+    in  int      tsne_stop_lying_iter,
+    in  int      tsne_mom_switch_iter,
+    in  int      random_seed,
+    in  string[] factorization,
+    out path     tsne,
+    out map      tsne_summary,
+    src py       "stages/analysis/project_tsne",
+) split (
+    in  string   method,
+    in  int      tsne_dims,
+) using (
+    volatile = strict,
+)
+
+stage RUN_GRAPH_CLUSTERING(
+    in  h5       matrix_h5                 "Processed matrix",
+    in  string[] factorization,
+    in  path     reduced_data,
+    in  map      reduction_summary,
+    in  int      num_neighbors             "Use this many neighbors",
+    in  float    neighbor_a                "Use larger of (a+b*log10(n_cells) neighbors or num_neighbors",
+    in  float    neighbor_b                "Use larger of (a+b*log10(n_cells) neighbors or num_neighbors",
+    in  int      balltree_leaf_size,
+    in  string   similarity_type           "Type of similarity to use (nn or snn)",
+    out h5       chunked_neighbors,
+    out path     knn_clusters,
+    out map      graph_clustering_summary,
+    src py       "stages/analysis/run_graph_clustering",
+) split (
+    in  string   method,
+    in  pickle   neighbor_index,
+    in  h5       submatrix,
+    in  int      row_start,
+    in  int      total_rows,
+    in  int      k_nearest,
+    in  h5       use_bcs,
+) using (
+    volatile = strict,
+)
+
+stage COMBINE_CLUSTERING(
+    in  h5   filtered_matrix,
+    in  map  clustering_summary,
+    in  path clustered_data,
+    in  map  graph_clustering_summary,
+    in  path knn_clusters,
+    out path clustering,
+    out map  clustering_summary,
+    src py   "stages/analysis/combine_clustering",
+) using (
+    volatile = strict,
+)
+
+stage SUMMARIZE_ANALYSIS(
+    in  tsv  peak_annotation,
+    in  h5   filtered_peak_bc_matrix,
+    in  h5   filtered_tf_bc_matrix,
+    in  gz   tf_propZ_matrix,
+    in  path reduced_data,
+    in  map  reduction_summary,
+    in  path clustering,
+    in  map  clustering_summary,
+    in  path tsne,
+    in  map  tsne_summary,
+    in  path enrichment_analysis,
+    in  map  enrichment_analysis_summary,
+    out h5   analysis,
+    out path analysis_csv,
+    out h5   feature_bc_matrix,
+    src py   "stages/analysis/summarize_analysis",
+) split (
+) using (
+    volatile = strict,
+)
+
+stage PERFORM_DIFFERENTIAL_ANALYSIS(
+    in  bed      peaks,
+    in  string   reference_path,
+    in  h5       filtered_peak_bc_matrix,
+    in  h5       filtered_tf_bc_matrix,
+    in  string[] factorization,
+    in  path     clustering,
+    in  map      clustering_summary,
+    out path     enrichment_analysis,
+    out map      enrichment_analysis_summary,
+    src py       "stages/analysis/perform_differential_analysis",
+) split (
+    in  string   method,
+    in  string   clustering_key,
+    in  int      cluster,
+    out csv      tmp_diffexp,
+) using (
+    volatile = strict,
+)

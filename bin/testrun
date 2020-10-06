@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+# Run SC_ATAC_COUNTER_CS on test data with mrp.
+#
+
+source $TENX_SCRIPTDIR/common/_includes
+
+# Overwrite standard footer
+read -d '' DOCOPT_OPTIONS_FOOTER <<EOF
+    -h --help           Show this message.
+    --version           Show version.
+EOF
+
+DOCOPT_SPEC="$(cat <<EOF
+Exercises a minimal pipeline on a tiny dataset to confirm software package was
+installed correctly.
+
+Usage:
+    $TENX_SUBCMD --id=ID [options]
+    $TENX_SUBCMD -h | --help | --version
+
+Arguments:
+    id      A unique run id, used to name output folder [a-zA-Z0-9_-]+.
+
+Options:
+# Martian Runtime
+    $DOCOPT_OPTIONS_MRP_CLUSTER
+EOF
+)"
+
+function implement_process_options {
+    echo "Running Cell Ranger ATAC in test mode..."
+    echo
+    
+    # This refers to the tiny-ref and tiny-fastq module versions,
+    # and is independent of the Cell Ranger ATAC version. 
+    TEST_FASTQ_VERSION="1.0.0"
+    TEST_REF_VERSION="1.1.0"
+    dist_path=$TENX_SCRIPTDIR/../../..
+    tiny_fastq=$dist_path/cellranger-atac-tiny-fastq/$TEST_FASTQ_VERSION
+    indices=\[\ \"any\"\ \]
+    lanes="null"
+    fastqs="$(abspath $tiny_fastq)"
+    tiny_ref=$dist_path/cellranger-atac-tiny-ref/$TEST_REF_VERSION
+    reference_path=\"$(abspath $tiny_ref)\"
+    sample_desc=\"testrun\"
+    sample_id=\"$id\"
+    sample_names=\[\ \"testfastq\"\ \]
+    fastq_mode=\"ILMN_BCL2FASTQ\"
+    downsample="null"
+    force_cells="null"
+    factorization="[\"lsa\"]"
+    library="null"
+}
+
+function implement_generate_sample_defs {
+    generate_sample_defs_fastqs_crg
+}
+
+function implement_generate_mro {
+cat <<EOF > $mro
+@include "sc_atac_counter_cs.mro"
+
+call SC_ATAC_COUNTER_CS(
+    fastq_mode = $fastq_mode,
+    sample_id = $sample_id,
+    sample_def = $sample_def,
+    reference_path = $reference_path,
+    sample_desc = $sample_desc,
+    downsample = $downsample,
+    force_cells = null,
+    factorization = $factorization,
+)
+EOF
+}
+
+source $TENX_SCRIPTDIR/../tenkit/bin/common/_subcmd_mrp

@@ -1,0 +1,59 @@
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+
+filetype bed;
+filetype tsv;
+filetype h5;
+filetype gz;
+filetype pickle;
+
+stage ANNOTATE_PEAKS(
+    in  bed    peaks,
+    in  string reference_path,
+    out tsv    peak_annotation,
+    src py     "stages/analysis/annotate_peaks",
+) split (
+    in  int    chunk_start,
+    in  int    chunk_end,
+) using (
+    mem_gb   = 5,
+    volatile = strict,
+)
+
+stage COMPUTE_GC_DISTRIBUTION(
+    in  bed    peaks,
+    in  string reference_path,
+    out pickle GCdict,
+    src py     "stages/analysis/compute_gc_dist",
+) split (
+) using (
+    volatile = strict,
+)
+
+stage SCAN_MOTIFS(
+    in  pickle globalGCdict,
+    in  bed    peaks,
+    in  string reference_path,
+    in  float  pwm_threshold,
+    out bed    peak_motif_hits,
+    src py     "stages/analysis/scan_motifs",
+) split (
+    in  file   GCdict,
+) using (
+    volatile = strict,
+)
+
+stage GENERATE_TF_MATRIX(
+    in  path reference_path,
+    in  bed  peaks,
+    in  bed  peak_motif_hits,
+    in  h5   filtered_matrix,
+    out h5   filtered_tf_bc_matrix,
+    out path filtered_tf_bc_matrix_mex,
+    out gz   tf_propZ_matrix,
+    src py   "stages/analysis/generate_tf_matrix",
+) split (
+) using (
+    volatile = strict,
+)

@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+# Run SC_ATAC_COUNTER_CS with mrp.
+#
+
+# specific to count
+read -d '' DOCOPT_OPTIONS_FOOTER <<EOF
+    -h --help           Show this message.
+    --version           Show version.
+
+Note: '$TENX_PRODUCT $TENX_SUBCMD' works as follows:
+set --fastqs to the folder containing FASTQ files. In addition,
+set --sample to the name prefixed to the FASTQ files comprising your sample. 
+For example, if your FASTQs are named:
+    subject1_S1_L001_R1_001.fastq.gz
+then set --sample=subject1
+EOF

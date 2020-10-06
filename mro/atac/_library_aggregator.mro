@@ -1,0 +1,84 @@
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+
+@include "_peak_caller.mro"
+@include "_library_aggregator_stages.mro"
+@include "_common_analysis_metric_stages.mro"
+
+filetype csv;
+filetype bed;
+filetype tsv.gz;
+filetype tsv.gz.tbi;
+filetype pickle;
+
+pipeline _LIBRARY_AGGREGATOR(
+    in  csv        aggr_csv,
+    in  string     normalization,
+    in  string     reference_path,
+    out bed        peaks,
+    out tsv.gz     fragments,
+    out tsv.gz.tbi fragments_index,
+    out csv        cell_barcodes,
+    out csv        metrics_csv,
+    out json       metrics,
+    out json       gem_group_index_json,
+    out pickle     library_info,
+    out csv        singlecell,
+)
+{
+    call SETUP_AGGR_SAMPLES(
+        aggr_csv       = self.aggr_csv,
+        normalization  = self.normalization,
+        reference_path = self.reference_path,
+    )
+
+    call NORMALIZE_LIBRARIES(
+        library_info   = SETUP_AGGR_SAMPLES.library_info,
+        reference_path = self.reference_path,
+    )
+
+    call _PEAK_CALLER(
+        reference_path  = self.reference_path,
+        fragments       = NORMALIZE_LIBRARIES.fragments,
+        fragments_index = NORMALIZE_LIBRARIES.fragments_index,
+    ) using (
+        disabled = NORMALIZE_LIBRARIES.skip_peakcalling,
+    )
+
+    call SELECT_PEAKS(
+        selector = NORMALIZE_LIBRARIES.skip_peakcalling,
+        peaks1   = NORMALIZE_LIBRARIES.peaks,
+        peaks2   = _PEAK_CALLER.peaks,
+    )
+
+    call REGENERATE_ANALYSIS_METRICS(
+        reference_path  = self.reference_path,
+        peaks           = SELECT_PEAKS.peaks,
+        cell_barcodes   = NORMALIZE_LIBRARIES.cell_barcodes,
+        fragments       = NORMALIZE_LIBRARIES.fragments,
+        fragments_index = NORMALIZE_LIBRARIES.fragments_index,
+    )
+
+    call MERGE_ANALYSIS_METRICS(
+        reference_path = self.reference_path,
+        library_info   = SETUP_AGGR_SAMPLES.library_info,
+        metrics        = [
+            NORMALIZE_LIBRARIES.normalization_metrics,
+            _PEAK_CALLER.peak_metrics,
+            REGENERATE_ANALYSIS_METRICS.regenerated_metrics,
+        ],
+    )
+
+    return (
+        peaks                = SELECT_PEAKS.peaks,
+        fragments            = NORMALIZE_LIBRARIES.fragments,
+        fragments_index      = NORMALIZE_LIBRARIES.fragments_index,
+        cell_barcodes        = REGENERATE_ANALYSIS_METRICS.cell_barcodes,
+        gem_group_index_json = SETUP_AGGR_SAMPLES.gem_group_index_json,
+        metrics              = MERGE_ANALYSIS_METRICS.metrics,
+        metrics_csv          = MERGE_ANALYSIS_METRICS.metrics_csv,
+        library_info         = SETUP_AGGR_SAMPLES.library_info,
+        singlecell           = REGENERATE_ANALYSIS_METRICS.singlecell,
+    )
+}

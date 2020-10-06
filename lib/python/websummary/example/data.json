@@ -1,0 +1,442 @@
+{
+  "alarms": {
+    "alarms": [
+      {
+        "raw_value": 143,
+        "raised": true,
+        "parent": "not_enough_cells",
+        "level": "WARN",
+        "title": "Number of cells",
+        "formatted_value": "143",
+        "test": "num_cells < 250",
+        "message": "The recovered cell count is ideally between 250 and 5000. A low value indicates either an inaccurate quantification of cells input or a problem during library preparation.",
+        "id": "not_enough_cells_warn"
+      }
+    ]
+  },
+  "sample": {
+    "id": "Example",
+    "description": "Example sample for testing",
+    "pipeline": "TestPipe"
+  },
+  "metric-reads": {
+    "threshold": "pass",
+    "metric": 377.0,
+    "name": "Median reads per MB per cell"
+  },
+  "metric-cells": {
+    "threshold": "pass",
+    "metric": 143,
+    "name": "Estimated Number of Cells"
+  },
+  "metric-ploidy": {
+    "threshold": "pass",
+    "metric": 2.10,
+    "name": "Median ploidy"
+  },
+  "plot-readsPerCell": {
+    "layout": {
+      "yaxis": {
+        "type": "log",
+        "title": "Cells"
+      },
+      "xaxis": {
+        "type": "linear",
+        "title": "Reads"
+      },
+      "title": "Reads-per-cell Histogram"
+    },
+    "data": [
+      {
+        "y": [
+          5,
+          3,
+          6,
+          7,
+          10,
+          15,
+          8,
+          6,
+          7,
+          10,
+          8,
+          10,
+          5,
+          7,
+          7,
+          5,
+          3,
+          4,
+          3,
+          4,
+          1,
+          2,
+          3,
+          1,
+          3
+        ],
+        "x": [
+          546578.0,
+          647125.84,
+          747673.6799999999,
+          848221.52,
+          948769.36,
+          1049317.2,
+          1149865.04,
+          1250412.88,
+          1350960.72,
+          1451508.56,
+          1552056.4,
+          1652604.24,
+          1753152.08,
+          1853699.92,
+          1954247.76,
+          2054795.5999999999,
+          2155343.44,
+          2255891.2800000003,
+          2356439.12,
+          2456986.96,
+          2557534.8,
+          2658082.64,
+          2758630.48,
+          2859178.32,
+          2959726.16,
+          3060274.0
+        ],
+        "line": {
+          "color": "#bdbdbd",
+          "width": 3
+        },
+        "type": "bar",
+        "name": "Reads-per-cell"
+      }
+    ]
+  },
+  "table-cells": {
+    "rows": [
+      [
+        "Cells detected",
+        143
+      ],
+      [
+        "Median reads per MB per cell",
+        "377.000"
+      ],
+      [
+        "Median unmapped fraction per cell",
+        "0.007"
+      ],
+      [
+        "Reads from cells",
+        222455484
+      ],
+      [
+        "Mapped reads per cell",
+        "1200946.937"
+      ],
+      [
+        "Median duplicate fraction per cell",
+        "0.130"
+      ],
+      [
+        "Median average ploidy",
+        "1.945"
+      ],
+      [
+        "MAPD quartiles",
+        "0.092, 0.101, 0.117"
+      ],
+      [
+        "DIMAPD quartiles",
+        "0.971, 0.993, 1.018"
+      ],
+      [
+        "Average ploidy quartiles",
+        "1.944, 1.945, 1.946"
+      ],
+      [
+        "Fraction of noisy cells",
+        "0.056"
+      ]
+    ]
+  },
+  "table-invocation": {
+    "rows": [
+      [
+        "Sample ID",
+        "67474"
+      ],
+      [
+        "Description",
+        "ML3_737K-V2_BJ_250_SS_GB3"
+      ],
+      [
+        "fastq_path",
+        [
+          "/mnt/analysis/marsoc/pipestances/HCNKFDMXX/BCL_PROCESSOR_PD/HCNKFDMXX/1015.12.13-0/BCL_PROCESSOR_PD/BCL_PROCESSOR/MERGE_FASTQS_FROM_TILES/fork0/join-u56bdce7448/files/demultiplexed_fastq_path (CAGATGGG,TCACATCA,GTCTCCTT,AGTGGAAC) "
+        ]
+      ],
+      [
+        "Reference path",
+        "/mnt/opt/refdata_scdna/hg19-2.0.0"
+      ],
+      [
+        "Pipeline version",
+        "6002.15.9"
+      ]
+    ]
+  },
+  "plot-cellPloidy": {
+    "layout": {
+      "yaxis": {
+        "type": "linear",
+        "title": "Cells"
+      },
+      "xaxis": {
+        "type": "linear",
+        "title": "Average Ploidy"
+      },
+      "title": "Cell Ploidy Histogram"
+    },
+    "data": [
+      {
+        "y": [
+          1,
+          0,
+          14,
+          125,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1,
+          1
+        ],
+        "x": [
+          1.67076804905,
+          1.7613449846656002,
+          1.8519219202812,
+          1.9424988558968002,
+          2.0330757915124003,
+          2.1236527271280004,
+          2.2142296627436,
+          2.3048065983592,
+          2.3953835339748,
+          2.4859604695904003,
+          2.5765374052060004,
+          2.6671143408216,
+          2.7576912764372006,
+          2.8482682120528002,
+          2.9388451476684003,
+          3.0294220832840004,
+          3.1199990188996,
+          3.2105759545152006,
+          3.3011528901308003,
+          3.3917298257464004,
+          3.4823067613620005,
+          3.5728836969776,
+          3.6634606325932006,
+          3.7540375682088003,
+          3.844614503824401,
+          3.93519143944
+        ],
+        "line": {
+          "color": "#bdbdbd",
+          "width": 3
+        },
+        "type": "bar",
+        "name": "Cell Ploidy"
+      }
+    ]
+  },
+  "plot-readsPerBarcode": {
+    "layout": {
+      "yaxis": {
+        "type": "log",
+        "title": "Barcodes"
+      },
+      "xaxis": {
+        "type": "log",
+        "title": "Reads"
+      },
+      "title": "Reads-Per-Barcode Histogram"
+    },
+    "data": [
+      {
+        "name": "Cells",
+        "y": [
+          3,
+          2,
+          1,
+          2,
+          4,
+          2,
+          3,
+          6,
+          6,
+          10,
+          11,
+          5,
+          6,
+          6,
+          10,
+          10,
+          8,
+          11,
+          8,
+          5,
+          7,
+          5,
+          5,
+          3,
+          4
+        ],
+        "x": [
+          431828.0000000003,
+          462283.42874516133,
+          494886.77516155614,
+          529789.5245676498,
+          567153.8460255222,
+          607153.3458289226,
+          649973.8741322733,
+          695814.388468457,
+          744887.8781675916,
+          797422.3539718939,
+          853661.9074447214,
+          913867.8450961291,
+          978319.9024944227,
+          1047317.544004881,
+          1121181.354194624,
+          1200254.5273685104,
+          1284904.4621569482,
+          1375524.468564552,
+          1472535.5954111065,
+          1576388.5866557541,
+          1687565.9756940268,
+          1806584.3273585427,
+          1933996.6380403636,
+          2070394.905082753,
+          2216412.8773854915,
+          2372728.999999998
+        ],
+        "line": {
+          "color": "#bdedbd",
+          "width": 3
+        },
+        "type": "scatter",
+        "fill": "tozeroy"
+      },
+      {
+        "name": "Noise",
+        "y": [
+          11974,
+          3259,
+          60061,
+          164039,
+          174065,
+          190380,
+          70845,
+          22959,
+          12493,
+          7584,
+          4693,
+          2390,
+          1152,
+          375,
+          177,
+          128,
+          86,
+          47,
+          18,
+          13,
+          8,
+          1,
+          4,
+          1,
+          2
+        ],
+        "x": [
+          0.0,
+          0.6387773237580765,
+          1.6855911168636837,
+          3.4010858232023313,
+          6.212399646977127,
+          10.819516991346873,
+          18.369556423192545,
+          30.74238983758053,
+          51.01870866771579,
+          84.24708017583032,
+          138.70098190873742,
+          227.9388012587762,
+          374.17971603123954,
+          613.8360109659899,
+          1006.5793126009356,
+          1650.198129378164,
+          2704.9460514566904,
+          4433.443028439926,
+          7266.064678504444,
+          11908.100805416361,
+          19515.36434626538,
+          31981.97533286033,
+          52411.97472180544,
+          85892.19444480004,
+          140758.81932128154,
+          230673.00000000017
+        ],
+        "line": {
+          "color": "#bdbdbd",
+          "width": 3
+        },
+        "type": "scatter",
+        "fill": "tozeroy"
+      }
+    ]
+  },
+  "table-seq": {
+    "rows": [
+      [
+        "Fraction of Q30 R1 Bases",
+        "0.906"
+      ],
+      [
+        "Fraction of Q30 R2 Bases",
+        "0.892"
+      ],
+      [
+        "Total reads",
+        281228374
+      ],
+      [
+        "Total mapped reads",
+        171735412
+      ],
+      [
+        "Fraction of mapped reads",
+        "0.611"
+      ],
+      [
+        "Fraction of reads with valid barcodes",
+        "0.876"
+      ],
+      [
+        "Fraction of reads not in cell barcodes",
+        "0.085"
+      ]
+    ]
+  }
+}

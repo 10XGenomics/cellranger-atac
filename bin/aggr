@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+# Run SC_ATAC_AGGREGATOR_CS with mrp.
+#
+
+source $TENX_SCRIPTDIR/common/_includes
+source $TENX_SCRIPTDIR/common/_includes_aggr_reanalyze
+
+DOCOPT_SPEC="$(cat <<EOF
+'$TENX_PRODUCT $TENX_SUBCMD' aggregates the feature/cell count data 
+generated from multiple runs of the '$TENX_PRODUCT count' pipeline.
+
+To run this pipeline, supply a CSV that enumerates the paths to the
+fragments.tsv.gz and singlecell.csv files produced by '$TENX_PRODUCT count'.
+
+Please see the following URL for details on the CSV format:
+support.10xgenomics.com/single-cell-atac/software
+
+The commands below should be preceded by '$TENX_PRODUCT':
+
+Usage:
+    $TENX_SUBCMD
+        --id=ID
+        --csv=CSV
+	--reference=PATH
+        [options]
+    $TENX_SUBCMD <run_id> <mro> [options]
+    $TENX_SUBCMD -h | --help | --version
+
+Arguments:
+    id        A unique run id, used to name output folder [a-zA-Z0-9_-]+.
+    csv       Path of CSV file enumerating '$TENX_PRODUCT count' outputs.
+    reference Path of folder containing a 10x-compatible reference.
+
+Options:
+# Sample specification
+    $DOCOPT_OPTIONS_SAMPLE_INFO
+# Aggregation
+    $DOCOPT_OPTIONS_AGGR
+# Martian Runtime
+    $DOCOPT_OPTIONS_MRP_CLUSTER
+EOF
+)"
+
+function implement_process_options {
+    process_options_cratac_aggr
+    process_options_reference
+}
+
+function implement_generate_sample_defs {
+    : # noop
+}
+
+function implement_generate_mro {
+    cat <<EOF > $mro
+@include "sc_atac_aggregator_cs.mro"
+
+call SC_ATAC_AGGREGATOR_CS(
+    sample_id = $sample_id,
+    sample_desc = $sample_desc,
+    reference_path = $reference_path,
+    factorization = $factorization,
+    no_secondary_analysis = $nosecondary,
+    normalization = $normalization,
+    aggr_csv = $aggregation_csv,
+    )
+EOF
+}
+
+source $TENX_SCRIPTDIR/../tenkit/bin/common/_subcmd_mrp

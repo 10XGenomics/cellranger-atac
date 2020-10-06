@@ -1,0 +1,63 @@
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+@include "_aligner_stages.mro"
+
+# Takes input fastqs and chunks them, trims them, and aligns the trimmed reads to a reference
+pipeline _ALIGNER(
+    in  string sample_id,
+    in  string fastq_mode         "configuration of the input fastqs",
+    in  map[]  sample_def,
+    in  string reference_path     "this is the reference_path",
+    in  string barcode_whitelist  "name of barcode whitelist file",
+    in  map    trim_def,
+    in  map    adapters,
+    in  string read_group_sample  "sample header for BAM file",
+    in  map    downsample,
+    out bam[]  align,
+    out map[]  chunks,
+    out json   bc_counts,
+    out json   lot_info           "gelbead lot detected",
+    out json   read_counts        "total # of read pairs before and after adapter trimming",
+    out json   downsample_info    "info on downsampling",
+)
+{
+    call SETUP_CHUNKS(
+        sample_id  = self.sample_id,
+        input_mode = self.fastq_mode,
+        sample_def = self.sample_def,
+        downsample = self.downsample,
+    ) using (
+        volatile = true,
+    )
+
+    call TRIM_READS(
+        chunks            = SETUP_CHUNKS.chunks,
+        max_read_num      = 5000000,
+        trim_def          = self.trim_def,
+        adapters          = self.adapters,
+        barcode_whitelist = self.barcode_whitelist,
+    ) using (
+        volatile = true,
+    )
+
+    call ALIGN_READS(
+        chunks            = TRIM_READS.chunks,
+        aligner           = "bwa",
+        aligner_method    = "MEM",
+        reference_path    = self.reference_path,
+        read_group_sample = self.read_group_sample,
+        num_threads       = 4,
+    ) using (
+        volatile = true,
+    )
+
+    return (
+        align           = ALIGN_READS,
+        chunks          = TRIM_READS.chunks,
+        bc_counts       = TRIM_READS.bc_counts,
+        lot_info        = TRIM_READS.lot_info,
+        read_counts     = TRIM_READS.read_counts,
+        downsample_info = SETUP_CHUNKS.downsample_info,
+    )
+}

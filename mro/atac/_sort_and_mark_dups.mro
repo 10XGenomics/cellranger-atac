@@ -1,0 +1,57 @@
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+@include "_sort_and_mark_dups_stages.mro"
+
+# Attaches barcodes to the aligned reads, marks duplicate reads, and produces a barcode-sorted and position-sorted
+# output BAM
+pipeline _SORT_AND_MARK_DUPS(
+    in  bam[]      align,
+    in  map[]      chunks,
+    in  string     barcode_whitelist,
+    in  json       bc_counts,
+    in  string     reference_path,
+    out bam        possorted_bam        "bam file sorted by position",
+    out bam.bai    possorted_bam_index  "position-sorted bam index",
+    out tsv.gz     fragments,
+    out tsv.gz.tbi fragments_index,
+    out csv        singlecell_mapping,
+    out bam[]      read_paired_bam,
+)
+{
+    call ATTACH_BCS(
+        align                   = self.align,
+        chunks                  = self.chunks,
+        paired_end              = true,
+        barcode_whitelist       = self.barcode_whitelist,
+        exclude_non_bc_reads    = false,
+        bc_confidence_threshold = 0.975,
+        bc_counts               = self.bc_counts,
+    ) using (
+        volatile = true,
+    )
+
+    call SORT_READS_BY_POS(
+        input = ATTACH_BCS.output,
+    ) using (
+        volatile = true,
+    )
+
+    call MARK_DUPLICATES(
+        input              = SORT_READS_BY_POS.tagsorted_bam,
+        reference_path     = self.reference_path,
+        barcode_whitelist  = self.barcode_whitelist,
+        raw_barcode_counts = self.bc_counts,
+    ) using (
+        volatile = true,
+    )
+
+    return (
+        possorted_bam       = MARK_DUPLICATES.output,
+        possorted_bam_index = MARK_DUPLICATES.index,
+        singlecell_mapping  = MARK_DUPLICATES.singlecell_mapping,
+        fragments           = MARK_DUPLICATES.fragments,
+        fragments_index     = MARK_DUPLICATES.fragments_index,
+        read_paired_bam     = ATTACH_BCS.output,
+    )
+}

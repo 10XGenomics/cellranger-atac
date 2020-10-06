@@ -1,0 +1,48 @@
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+
+@include "_peak_annotator_stages.mro"
+
+pipeline _PEAK_ANNOTATOR(
+    in  string reference_path,
+    in  bed    peaks,
+    in  h5     filtered_peak_bc_matrix,
+    in  float  pwm_threshold,
+    out h5     filtered_tf_bc_matrix,
+    out path   filtered_tf_bc_matrix_mex,
+    out gz     tf_propZ_matrix,
+    out tsv    peak_annotation,
+)
+{
+    call ANNOTATE_PEAKS(
+        peaks          = self.peaks,
+        reference_path = self.reference_path,
+    )
+
+    call COMPUTE_GC_DISTRIBUTION(
+        peaks          = self.peaks,
+        reference_path = self.reference_path,
+    )
+
+    call SCAN_MOTIFS(
+        globalGCdict   = COMPUTE_GC_DISTRIBUTION.GCdict,
+        peaks          = self.peaks,
+        reference_path = self.reference_path,
+        pwm_threshold  = self.pwm_threshold,
+    )
+
+    call GENERATE_TF_MATRIX(
+        reference_path  = self.reference_path,
+        peaks           = self.peaks,
+        filtered_matrix = self.filtered_peak_bc_matrix,
+        peak_motif_hits = SCAN_MOTIFS.peak_motif_hits,
+    )
+
+    return (
+        filtered_tf_bc_matrix     = GENERATE_TF_MATRIX.filtered_tf_bc_matrix,
+        filtered_tf_bc_matrix_mex = GENERATE_TF_MATRIX.filtered_tf_bc_matrix_mex,
+        tf_propZ_matrix           = GENERATE_TF_MATRIX.tf_propZ_matrix,
+        peak_annotation           = ANNOTATE_PEAKS.peak_annotation,
+    )
+}

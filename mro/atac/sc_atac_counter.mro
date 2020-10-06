@@ -1,0 +1,178 @@
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+@include "_basic_sc_atac_counter.mro"
+@include "_sc_atac_metric_collector.mro"
+@include "_sc_atac_analyzer.mro"
+@include "_sc_atac_reporter.mro"
+@include "_atac_cloupe_stages.mro"
+@include "_preflight_stages.mro"
+
+pipeline SC_ATAC_COUNTER(
+    in  string     fastq_mode,
+    in  string     sample_id,
+    in  map[]      sample_def,
+    in  map        downsample,
+    in  string     sample_desc,
+    in  string     reference_path,
+    in  map        trim_def,
+    in  string     barcode_whitelist,
+    in  map        adapters,
+    in  string[]   factorization,
+    in  map        force_cells,
+    #
+    out csv        singlecell,
+    out bam        possorted_bam,
+    out bam.bai    possorted_bam_index,
+    out json       summary,
+    out html       web_summary,
+    out bed        peaks,
+    out h5         raw_peak_bc_matrix,
+    out path       raw_peak_bc_matrix_mex,
+    out path       analysis_csv,
+    out h5         filtered_peak_bc_matrix,
+    out path       filtered_peak_bc_matrix_mex,
+    out tsv.gz     fragments,
+    out tsv.gz.tbi fragments_index,
+    out h5         filtered_tf_bc_matrix,
+    out path       filtered_tf_bc_matrix_mex,
+    out cloupe     cloupe,
+    out csv        summary_csv,
+    out tsv        peak_annotation,
+)
+{
+    call ATAC_COUNTER_PREFLIGHT as ATAC_COUNTER_PREFLIGHT_LOCAL(
+        sample_id         = self.sample_id,
+        fastq_mode        = self.fastq_mode,
+        sample_def        = self.sample_def,
+        reference_path    = self.reference_path,
+        force_cells       = self.force_cells,
+        factorization     = self.factorization,
+        downsample        = self.downsample,
+        trim_def          = self.trim_def,
+        check_executables = false,
+    ) using (
+        local     = true,
+        preflight = true,
+    )
+
+    call ATAC_COUNTER_PREFLIGHT(
+        sample_id         = self.sample_id,
+        fastq_mode        = self.fastq_mode,
+        sample_def        = self.sample_def,
+        reference_path    = self.reference_path,
+        force_cells       = self.force_cells,
+        factorization     = self.factorization,
+        downsample        = self.downsample,
+        trim_def          = self.trim_def,
+        check_executables = true,
+    ) using (
+        preflight = true,
+    )
+
+    call _BASIC_SC_ATAC_COUNTER(
+        sample_id         = self.sample_id,
+        fastq_mode        = self.fastq_mode,
+        sample_def        = self.sample_def,
+        trim_def          = self.trim_def,
+        adapters          = self.adapters,
+        reference_path    = self.reference_path,
+        barcode_whitelist = self.barcode_whitelist,
+        downsample        = self.downsample,
+        force_cells       = self.force_cells,
+    )
+
+    call _SC_ATAC_METRIC_COLLECTOR(
+        read_paired_bam    = _BASIC_SC_ATAC_COUNTER.read_paired_bam,
+        fragments          = _BASIC_SC_ATAC_COUNTER.fragments,
+        fragments_index    = _BASIC_SC_ATAC_COUNTER.fragments_index,
+        peaks              = _BASIC_SC_ATAC_COUNTER.peaks,
+        reference_path     = self.reference_path,
+        cell_barcodes      = _BASIC_SC_ATAC_COUNTER.cell_barcodes,
+        singlecell_cells   = _BASIC_SC_ATAC_COUNTER.singlecell_cells,
+        singlecell_mapping = _BASIC_SC_ATAC_COUNTER.singlecell_mapping,
+    )
+
+    call _SC_ATAC_ANALYZER(
+        peaks                   = _BASIC_SC_ATAC_COUNTER.peaks,
+        filtered_peak_bc_matrix = _BASIC_SC_ATAC_COUNTER.filtered_peak_bc_matrix,
+        reference_path          = self.reference_path,
+        factorization           = self.factorization,
+        tsne_perplexity         = 30,
+        tsne_max_dims           = null,
+        tsne_input_pcs          = null,
+        tsne_max_iter           = null,
+        tsne_stop_lying_iter    = null,
+        tsne_mom_switch_iter    = null,
+        tsne_theta              = null,
+        random_seed             = null,
+        max_clusters            = 10,
+        neighbor_a              = null,
+        neighbor_b              = null,
+        graphclust_neighbors    = null,
+        num_components          = 15,
+        num_dr_bcs              = null,
+        num_dr_features         = null,
+    )
+
+    call CLOUPE_PREPROCESS(
+        pipestance_type        = "SC_ATAC_COUNTER_CS",
+        reference_path         = self.reference_path,
+        sample_id              = self.sample_id,
+        sample_desc            = self.sample_desc,
+        analysis               = _SC_ATAC_ANALYZER.analysis,
+        feature_barcode_matrix = _SC_ATAC_ANALYZER.feature_bc_matrix,
+        metrics_json           = _SC_ATAC_METRIC_COLLECTOR.basic_summary,
+        peaks                  = _BASIC_SC_ATAC_COUNTER.peaks,
+        fragments_index        = _BASIC_SC_ATAC_COUNTER.fragments_index,
+        aggregation_csv        = null,
+        gem_group_index_json   = null,
+        no_secondary_analysis  = false,
+    )
+
+    call _SC_ATAC_REPORTER(
+        reference_path          = self.reference_path,
+        barcode_whitelist       = self.barcode_whitelist,
+        bulk_complexity         = _SC_ATAC_METRIC_COLLECTOR.bulk_complexity,
+        singlecell_complexity   = _SC_ATAC_METRIC_COLLECTOR.singlecell_complexity,
+        cell_calling_summary    = _BASIC_SC_ATAC_COUNTER.cell_calling_summary,
+        complexity_summary      = _SC_ATAC_METRIC_COLLECTOR.complexity_summary,
+        basic_summary           = _SC_ATAC_METRIC_COLLECTOR.basic_summary,
+        peak_summary            = _BASIC_SC_ATAC_COUNTER.peak_metrics,
+        singlecell_results      = _SC_ATAC_METRIC_COLLECTOR.singlecell_results,
+        insert_summary          = _SC_ATAC_METRIC_COLLECTOR.insert_summary,
+        downsample_info         = _BASIC_SC_ATAC_COUNTER.downsample_info,
+        singlecell              = _SC_ATAC_METRIC_COLLECTOR.singlecell,
+        tss_relpos              = _SC_ATAC_METRIC_COLLECTOR.tss_relpos,
+        ctcf_relpos             = _SC_ATAC_METRIC_COLLECTOR.ctcf_relpos,
+        sample_id               = self.sample_id,
+        sample_desc             = self.sample_desc,
+        sample_def              = self.sample_def,
+        sc_insert_sizes         = _SC_ATAC_METRIC_COLLECTOR.insert_sizes,
+        enrichment_results      = _SC_ATAC_METRIC_COLLECTOR.enrichment_results,
+        filtered_peak_bc_matrix = _BASIC_SC_ATAC_COUNTER.filtered_peak_bc_matrix,
+        analysis                = _SC_ATAC_ANALYZER.analysis,
+        excluded_barcodes       = _BASIC_SC_ATAC_COUNTER.excluded_barcodes,
+    )
+
+    return (
+        singlecell                  = _SC_ATAC_METRIC_COLLECTOR.singlecell,
+        possorted_bam               = _BASIC_SC_ATAC_COUNTER.possorted_bam,
+        possorted_bam_index         = _BASIC_SC_ATAC_COUNTER.possorted_bam_index,
+        summary                     = _SC_ATAC_REPORTER.summary,
+        web_summary                 = _SC_ATAC_REPORTER.web_summary,
+        peaks                       = _BASIC_SC_ATAC_COUNTER.peaks,
+        raw_peak_bc_matrix          = _BASIC_SC_ATAC_COUNTER.raw_peak_bc_matrix,
+        raw_peak_bc_matrix_mex      = _BASIC_SC_ATAC_COUNTER.raw_peak_bc_matrix_mex,
+        analysis_csv                = _SC_ATAC_ANALYZER.analysis_csv,
+        filtered_peak_bc_matrix     = _BASIC_SC_ATAC_COUNTER.filtered_peak_bc_matrix,
+        filtered_peak_bc_matrix_mex = _BASIC_SC_ATAC_COUNTER.filtered_peak_bc_matrix_mex,
+        fragments                   = _BASIC_SC_ATAC_COUNTER.fragments,
+        fragments_index             = _BASIC_SC_ATAC_COUNTER.fragments_index,
+        filtered_tf_bc_matrix       = _SC_ATAC_ANALYZER.filtered_tf_bc_matrix,
+        filtered_tf_bc_matrix_mex   = _SC_ATAC_ANALYZER.filtered_tf_bc_matrix_mex,
+        cloupe                      = CLOUPE_PREPROCESS.output_for_cloupe,
+        summary_csv                 = _SC_ATAC_REPORTER.summary_csv,
+        peak_annotation             = _SC_ATAC_ANALYZER.peak_annotation,
+    )
+}

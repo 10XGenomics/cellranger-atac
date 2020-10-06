@@ -1,0 +1,32 @@
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+@include "_peak_caller_stages.mro"
+
+pipeline _PEAK_CALLER(
+    in  path       reference_path,
+    in  tsv.gz     fragments,
+    in  tsv.gz.tbi fragments_index,
+    out bedgraph   cut_sites,
+    out bed        peaks,
+    out json       peak_metrics,
+)
+{
+    call COUNT_CUT_SITES(
+        reference_path  = self.reference_path,
+        fragments       = self.fragments,
+        fragments_index = self.fragments_index,
+    )
+
+    call DETECT_PEAKS(
+        reference_path = self.reference_path,
+        cut_sites      = COUNT_CUT_SITES.cut_sites,
+        count_dict     = COUNT_CUT_SITES.count_dict,
+    )
+
+    return (
+        cut_sites    = COUNT_CUT_SITES.cut_sites,
+        peaks        = DETECT_PEAKS.peaks,
+        peak_metrics = DETECT_PEAKS.peak_metrics,
+    )
+}

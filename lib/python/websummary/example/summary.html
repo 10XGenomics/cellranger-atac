@@ -1,0 +1,91 @@
+<div class="container">
+  <div class="row">
+    <div class="col">
+      <div data-key="metric-cells" data-component="Metric"></div>
+    </div>
+    <div class="col">
+      <div data-key="metric-reads" data-component="Metric"></div>
+    </div>
+    <div class="col">
+      <div data-key="metric-ploidy" data-component="Metric"></div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col">
+      <div data-header data-title="Cell Metrics">
+        <dl class="helpText">
+          <dt>Cells detected</dt>
+          <dd>The number of barcodes associated with partitions containing cells</dd>
+
+          <dt>Median reads per MB per cell</dt>
+          <dd>Median over cells of the number of reads per cell with mapping quality at least 30 and not duplicate divided by the genome size in megabases</dd>
+
+          <dt>Median unmapped reads per cell</dt>
+          <dd>Median over cells of the fraction of reads per cell that are not mapped to the genome</dd>
+
+          <dt>Median duplicate fraction per cell</dt>
+          <dd>Median over cells of the fraction of reads per cell that are marked duplicates</dd>
+
+          <dt>Median average ploidy</dt>
+          <dd>Median over cells of the estimated average ploidy per cell</dd>
+
+          <dt>MAPD quartiles</dt>
+          <dd>Quartiles of the MAPD per cell distribution. MAPD is a measure of coverage dispersion that correlates with the ability to detect copy number variation. This metric depends on sequencing depth. See the documentation for more details.</dd>
+
+          <dt>DIMAPD quartiles</dt>
+          <dd>Quartiles of the DIMAPD per cell distribution. DIMAPD is a measure of coverage dispersion derived from MAPD and is independent of sequencing depth. See the documentation for more details.</dd>
+
+          <dt>Average ploidy quartiles</dt>
+          <dd>Quartiles of the Average ploidy per cell distribution</dd>
+
+          <dt>Fraction of noisy cells</dt>
+          <dd>Fraction of cells in the dataset that have high values of DIMAPD or where the copy number estimation procedure may be unreliable.</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-12 col-lg-6">
+      <div data-key="table-cells" data-component="TableMetric"></div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div data-key="plot-readsPerBarcode" data-component="Plot"></div>
+    </div>
+  </div>
+
+  [[ include test_import.html ]]
+
+  <div class="row">
+    <div class="col-12 col-lg-6">
+      <div data-header data-title="Read Metrics">
+         <dl class="helpText">
+          <dt>Fraction of Q30 bases</dt>
+          <dd>The fraction of total bases with quality score at least 30 for read 1 (or read 2)</dd>
+
+          <dt>Total reads</dt>
+          <dd>Total number of sequencing reads</dd>
+
+          <dt>Total mapped reads</dt>
+          <dd>Total number of reads that have mapping quality at least 30 and are not duplicates</dd>
+
+          <dt>Fraction mapped reads</dt>
+          <dd>Total mapped reads / Total reads</dd>
+
+          <dt>Fraction of reads with valid barcodes</dt>
+          <dd>The fraction of reads where the raw 16b barcode could be confidently associated with a valid 10x barcode</dd>
+
+          <dt>Fraction of reads not in cell barcodes</dt>
+          <dd>The fraction of reads with a valid 10x barcode that are associated with empty partitions without a cell</dd>
+        </dl>
+      </div>
+      <div data-key="table-seq" data-component="TableMetric">
+     </div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div data-header data-title="Invocation Details"></div>
+      <div data-key="table-invocation" data-component="TableMetric"></div>
+    </div>
+  </div>
+</div>

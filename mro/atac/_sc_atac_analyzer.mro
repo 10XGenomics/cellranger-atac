@@ -1,0 +1,153 @@
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+@include "_peak_annotator.mro"
+@include "_sc_atac_analyzer_stages.mro"
+
+pipeline _SC_ATAC_ANALYZER(
+    in  string   reference_path,
+    in  bed      peaks,
+    in  h5       filtered_peak_bc_matrix,
+    in  string[] factorization,
+    in  int      tsne_perplexity,
+    in  int      random_seed,
+    in  float    tsne_theta,
+    in  int      tsne_mom_switch_iter,
+    in  int      tsne_stop_lying_iter,
+    in  int      tsne_max_dims,
+    in  int      tsne_input_pcs,
+    in  int      tsne_max_iter,
+    in  int      max_clusters,
+    in  int      num_components,
+    in  int      num_dr_bcs,
+    in  int      num_dr_features,
+    in  float    neighbor_a,
+    in  float    neighbor_b,
+    in  int      graphclust_neighbors,
+    out h5       analysis,
+    out path     analysis_csv,
+    out h5       filtered_tf_bc_matrix,
+    out path     filtered_tf_bc_matrix_mex,
+    out h5       feature_bc_matrix,
+    out tsv      peak_annotation,
+)
+{
+    call ANALYZER_PREFLIGHT(
+        peaks                   = self.peaks,
+        filtered_peak_bc_matrix = self.filtered_peak_bc_matrix,
+        factorization           = self.factorization,
+        tsne_perplexity         = self.tsne_perplexity,
+        random_seed             = self.random_seed,
+        tsne_theta              = self.tsne_theta,
+        tsne_mom_switch_iter    = self.tsne_mom_switch_iter,
+        tsne_stop_lying_iter    = self.tsne_stop_lying_iter,
+        tsne_max_dims           = self.tsne_max_dims,
+        tsne_input_pcs          = self.tsne_input_pcs,
+        tsne_max_iter           = self.tsne_max_iter,
+        max_clusters            = self.max_clusters,
+        num_components          = self.num_components,
+        num_dr_bcs              = self.num_dr_bcs,
+        num_dr_features         = self.num_dr_features,
+        neighbor_a              = self.neighbor_a,
+        neighbor_b              = self.neighbor_b,
+        graphclust_neighbors    = self.graphclust_neighbors,
+    ) using (
+        volatile = true,
+    )
+
+    call _PEAK_ANNOTATOR(
+        reference_path          = self.reference_path,
+        peaks                   = self.peaks,
+        filtered_peak_bc_matrix = self.filtered_peak_bc_matrix,
+        pwm_threshold           = null,
+    )
+
+    call REDUCE_DIMENSIONS(
+        filtered_matrix = self.filtered_peak_bc_matrix,
+        factorization   = self.factorization,
+        num_dims        = self.num_components,
+        num_bcs         = self.num_dr_bcs,
+        num_features    = self.num_dr_features,
+        random_seed     = self.random_seed,
+    )
+
+    call CLUSTER_CELLS(
+        filtered_matrix   = self.filtered_peak_bc_matrix,
+        reduced_data      = REDUCE_DIMENSIONS.reduced_data,
+        reduction_summary = REDUCE_DIMENSIONS.reduction_summary,
+        factorization     = self.factorization,
+        minclusters       = 2,
+        maxclusters       = self.max_clusters,
+        num_dims          = null,
+        random_seed       = self.random_seed,
+    )
+
+    call PROJECT_TSNE(
+        filtered_matrix      = self.filtered_peak_bc_matrix,
+        reduced_data         = REDUCE_DIMENSIONS.reduced_data,
+        reduction_summary    = REDUCE_DIMENSIONS.reduction_summary,
+        tsne_perplexity      = self.tsne_perplexity,
+        tsne_max_dims        = self.tsne_max_dims,
+        tsne_input_pcs       = self.tsne_input_pcs,
+        tsne_theta           = self.tsne_theta,
+        tsne_max_iter        = self.tsne_max_iter,
+        tsne_stop_lying_iter = self.tsne_stop_lying_iter,
+        tsne_mom_switch_iter = self.tsne_mom_switch_iter,
+        random_seed          = self.random_seed,
+        factorization        = self.factorization,
+    )
+
+    call RUN_GRAPH_CLUSTERING(
+        matrix_h5          = self.filtered_peak_bc_matrix,
+        factorization      = self.factorization,
+        reduced_data       = REDUCE_DIMENSIONS.reduced_data,
+        reduction_summary  = REDUCE_DIMENSIONS.reduction_summary,
+        num_neighbors      = self.graphclust_neighbors,
+        neighbor_a         = self.neighbor_a,
+        neighbor_b         = self.neighbor_b,
+        balltree_leaf_size = null,
+        similarity_type    = "nn",
+    )
+
+    call COMBINE_CLUSTERING(
+        filtered_matrix          = self.filtered_peak_bc_matrix,
+        clustering_summary       = CLUSTER_CELLS.clustering_summary,
+        clustered_data           = CLUSTER_CELLS.clustered_data,
+        graph_clustering_summary = RUN_GRAPH_CLUSTERING.graph_clustering_summary,
+        knn_clusters             = RUN_GRAPH_CLUSTERING.knn_clusters,
+    )
+
+    call PERFORM_DIFFERENTIAL_ANALYSIS(
+        reference_path          = self.reference_path,
+        peaks                   = self.peaks,
+        filtered_peak_bc_matrix = self.filtered_peak_bc_matrix,
+        filtered_tf_bc_matrix   = _PEAK_ANNOTATOR.filtered_tf_bc_matrix,
+        factorization           = self.factorization,
+        clustering              = COMBINE_CLUSTERING.clustering,
+        clustering_summary      = COMBINE_CLUSTERING.clustering_summary,
+    )
+
+    call SUMMARIZE_ANALYSIS(
+        peak_annotation             = _PEAK_ANNOTATOR.peak_annotation,
+        filtered_peak_bc_matrix     = self.filtered_peak_bc_matrix,
+        filtered_tf_bc_matrix       = _PEAK_ANNOTATOR.filtered_tf_bc_matrix,
+        tf_propZ_matrix             = _PEAK_ANNOTATOR.tf_propZ_matrix,
+        reduced_data                = REDUCE_DIMENSIONS.reduced_data,
+        reduction_summary           = REDUCE_DIMENSIONS.reduction_summary,
+        clustering                  = COMBINE_CLUSTERING.clustering,
+        clustering_summary          = COMBINE_CLUSTERING.clustering_summary,
+        tsne                        = PROJECT_TSNE.tsne,
+        tsne_summary                = PROJECT_TSNE.tsne_summary,
+        enrichment_analysis         = PERFORM_DIFFERENTIAL_ANALYSIS.enrichment_analysis,
+        enrichment_analysis_summary = PERFORM_DIFFERENTIAL_ANALYSIS.enrichment_analysis_summary,
+    )
+
+    return (
+        analysis                  = SUMMARIZE_ANALYSIS.analysis,
+        analysis_csv              = SUMMARIZE_ANALYSIS.analysis_csv,
+        filtered_tf_bc_matrix     = _PEAK_ANNOTATOR.filtered_tf_bc_matrix,
+        filtered_tf_bc_matrix_mex = _PEAK_ANNOTATOR.filtered_tf_bc_matrix_mex,
+        feature_bc_matrix         = SUMMARIZE_ANALYSIS.feature_bc_matrix,
+        peak_annotation           = _PEAK_ANNOTATOR.peak_annotation,
+    )
+}

@@ -1,0 +1,69 @@
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+filetype csv;
+filetype html;
+filetype h5;
+filetype json;
+
+stage PARSE_ANALYSIS_INPUTS(
+    in  csv      parameters,
+    in  string   reference_path,
+    in  csv      cell_barcodes,
+    out csv      cell_barcodes,
+    out string[] factorization,
+    out int      tsne_perplexity,
+    out int      tsne_max_dims,
+    out int      tsne_input_pcs,
+    out int      tsne_max_iter,
+    out int      tsne_stop_lying_iter,
+    out int      tsne_mom_switch_iter,
+    out float    tsne_theta,
+    out int      random_seed,
+    out int      max_clusters,
+    out float    neighbor_a,
+    out float    neighbor_b,
+    out int      graphclust_neighbors,
+    out int      num_comps,
+    out int      num_dr_bcs,
+    out int      num_dr_features,
+    out int      num_analysis_bcs,
+    src py       "stages/reanalysis/parse_analysis_inputs",
+) using (
+    volatile = strict,
+)
+
+stage CREATE_REANALYSIS_WEBSUMMARY(
+    in  string reference_path,
+    in  string barcode_whitelist,
+    in  string sample_id,
+    in  string sample_desc,
+    in  csv    singlecell,
+    in  json   summary_results,
+    in  bool   debug,
+    in  h5     filtered_peak_bc_matrix,
+    in  h5     analysis,
+    out html   web_summary,
+    src py     "stages/reanalysis/create_reanalysis_websummary",
+) using (
+    mem_gb = 16,
+)
+
+stage DECIDE_CELL_CALLER(
+    in  map  force_cells,
+    in  csv  input_cell_barcodes,
+    out bool disable_cell_calling,
+    out json cell_calling_metrics,
+    src py   "stages/reanalysis/decide_cell_caller",
+)
+
+stage SELECT_CELLS(
+    in  bool selector,
+    in  csv  cell_barcodes1,
+    in  csv  cell_barcodes2,
+    in  json metrics1,
+    in  json metrics2,
+    out csv  cell_barcodes,
+    out json metrics,
+    src py   "stages/reanalysis/select_cells",
+)

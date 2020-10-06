@@ -1,0 +1,62 @@
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+filetype bam;
+filetype bam.bai;
+filetype tsv.gz;
+filetype tsv.gz.tbi;
+filetype json;
+filetype csv;
+
+# Attaches raw and corrected barcode sequences to the aligned reads
+stage ATTACH_BCS(
+    in  string barcode_whitelist,
+    in  bam[]  align,
+    in  map[]  chunks,
+    in  bool   paired_end,
+    in  bool   exclude_non_bc_reads,
+    in  float  bc_confidence_threshold,
+    in  json   bc_counts,
+    out bam[]  output,
+    out int    perfect_read_count,
+    src py     "stages/processing/attach_bcs",
+) split (
+    in  bam    align_chunk,
+    in  map    chunk,
+) using (
+    # N.B. No index files are generated for the bam
+    volatile = strict,
+)
+
+stage SORT_READS_BY_POS(
+    in  bam[] input,
+    out bam   tagsorted_bam,
+    src py    "stages/processing/sort_reads_by_pos",
+) split (
+    in  bam   chunk_input,
+) using (
+    # N.B. No index files are generated for the bam
+    volatile = strict,
+)
+
+# Marks duplicates in the reads using barcodes and fragment alignments to detect PCR and optical/diffusion duplicates
+stage MARK_DUPLICATES(
+    in  bam        input,
+    in  string     reference_path,
+    in  json       raw_barcode_counts,
+    in  string     barcode_whitelist,
+    out bam        output,
+    out bam.bai    index,
+    out csv        singlecell_mapping,
+    out tsv.gz     fragments,
+    out tsv.gz.tbi fragments_index,
+    src py         "stages/processing/mark_duplicates",
+) split (
+    in  map        lane_map,
+    in  string     chunk_start,
+    in  string     chunk_end,
+    in  int        chunk_num,
+) using (
+    # N.B. BAM/BED index files are explicitly bound where used
+    volatile = strict,
+)

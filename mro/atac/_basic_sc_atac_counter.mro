@@ -1,0 +1,112 @@
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+@include "_aligner.mro"
+@include "_sort_and_mark_dups.mro"
+@include "_peak_caller.mro"
+@include "_basic_sc_atac_counter_stages.mro"
+@include "_produce_cell_barcodes.mro"
+
+pipeline _BASIC_SC_ATAC_COUNTER(
+    in  string     sample_id,
+    in  string     fastq_mode                   "configuration of the input fastqs",
+    in  map[]      sample_def,
+    in  string     reference_path               "this is the reference_path",
+    in  string     barcode_whitelist            "name of barcode whitelist file",
+    in  map        trim_def,
+    in  map        adapters,
+    in  map        downsample,
+    in  map        force_cells,
+    out bam        possorted_bam                "bam file sorted by position",
+    out bam.bai    possorted_bam_index          "position-sorted bam index",
+    out tsv.gz     fragments,
+    out tsv.gz.tbi fragments_index,
+    out json       lot_info                     "gelbead lot detected",
+    out json       read_counts                  "total # of read pairs before and after adapter trimming",
+    out json       downsample_info              "info on downsampling",
+    out csv        cell_barcodes,
+    out json       excluded_barcodes,
+    out json       cell_calling_summary,
+    out bed        peaks,
+    out bedgraph   cut_sites,
+    out csv        singlecell_mapping,
+    out csv        singlecell_cells,
+    out json       peak_metrics,
+    out bam[]      read_paired_bam,
+    out h5         raw_peak_bc_matrix,
+    out path       raw_peak_bc_matrix_mex,
+    out h5         filtered_peak_bc_matrix,
+    out path       filtered_peak_bc_matrix_mex,
+)
+{
+    call _ALIGNER(
+        sample_id         = self.sample_id,
+        fastq_mode        = self.fastq_mode,
+        sample_def        = self.sample_def,
+        read_group_sample = self.sample_id,
+        trim_def          = self.trim_def,
+        adapters          = self.adapters,
+        reference_path    = self.reference_path,
+        barcode_whitelist = self.barcode_whitelist,
+        downsample        = self.downsample,
+    )
+
+    call _SORT_AND_MARK_DUPS(
+        align             = _ALIGNER.align,
+        chunks            = _ALIGNER.chunks,
+        reference_path    = self.reference_path,
+        barcode_whitelist = self.barcode_whitelist,
+        bc_counts         = _ALIGNER.bc_counts,
+    )
+
+    call _PEAK_CALLER(
+        fragments       = _SORT_AND_MARK_DUPS.fragments,
+        fragments_index = _SORT_AND_MARK_DUPS.fragments_index,
+        reference_path  = self.reference_path,
+    )
+
+    call _PRODUCE_CELL_BARCODES(
+        fragments         = _SORT_AND_MARK_DUPS.fragments,
+        fragments_index   = _SORT_AND_MARK_DUPS.fragments_index,
+        peaks             = _PEAK_CALLER.peaks,
+        force_cells       = self.force_cells,
+        reference_path    = self.reference_path,
+        barcode_whitelist = self.barcode_whitelist,
+    )
+
+    call GENERATE_PEAK_MATRIX(
+        reference_path = self.reference_path,
+        fragments      = _SORT_AND_MARK_DUPS.fragments,
+        peaks          = _PEAK_CALLER.peaks,
+    )
+
+    call FILTER_PEAK_MATRIX(
+        num_analysis_bcs = null,
+        cell_barcodes    = _PRODUCE_CELL_BARCODES.cell_barcodes,
+        raw_matrix       = GENERATE_PEAK_MATRIX.raw_matrix,
+        random_seed      = null,
+    )
+
+    return (
+        possorted_bam               = _SORT_AND_MARK_DUPS.possorted_bam,
+        possorted_bam_index         = _SORT_AND_MARK_DUPS.possorted_bam_index,
+        singlecell_mapping          = _SORT_AND_MARK_DUPS.singlecell_mapping,
+        singlecell_cells            = _PRODUCE_CELL_BARCODES.singlecell,
+        lot_info                    = _ALIGNER.lot_info,
+        read_counts                 = _ALIGNER.read_counts,
+        downsample_info             = _ALIGNER.downsample_info,
+        cell_barcodes               = _PRODUCE_CELL_BARCODES.cell_barcodes,
+        excluded_barcodes           = _PRODUCE_CELL_BARCODES.excluded_barcodes,
+        cell_calling_summary        = _PRODUCE_CELL_BARCODES.cell_calling_summary,
+        peak_metrics                = _PEAK_CALLER.peak_metrics,
+        cut_sites                   = _PEAK_CALLER.cut_sites,
+        peaks                       = _PEAK_CALLER.peaks,
+        fragments                   = _SORT_AND_MARK_DUPS.fragments,
+        fragments_index             = _SORT_AND_MARK_DUPS.fragments_index,
+        read_paired_bam             = _SORT_AND_MARK_DUPS.read_paired_bam,
+        raw_peak_bc_matrix          = GENERATE_PEAK_MATRIX.raw_matrix,
+        raw_peak_bc_matrix_mex      = GENERATE_PEAK_MATRIX.raw_matrix_mex,
+        filtered_peak_bc_matrix     = FILTER_PEAK_MATRIX.filtered_matrix,
+        filtered_peak_bc_matrix_mex = FILTER_PEAK_MATRIX.filtered_matrix_mex,
+    )
+}

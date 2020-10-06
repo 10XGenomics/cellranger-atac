@@ -1,0 +1,162 @@
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+@include "_sc_atac_reporter_stages.mro"
+@include "_sc_atac_analyzer.mro"
+@include "_basic_sc_atac_counter_stages.mro"
+@include "_atac_cloupe_stages.mro"
+@include "_library_aggregator.mro"
+@include "_library_aggregator_stages.mro"
+@include "_preflight_stages.mro"
+@include "_common_analysis_metric_stages.mro"
+
+filetype csv;
+filetype html;
+filetype json;
+filetype h5;
+filetype cloupe;
+filetype tsv.gz;
+filetype tsv.gz.tbi;
+
+pipeline SC_ATAC_AGGREGATOR_CS(
+    in  string     sample_id,
+    in  string     sample_desc,
+    in  string     reference_path,
+    in  string[]   factorization,
+    in  csv        aggr_csv,
+    in  bool       no_secondary_analysis,
+    in  string     normalization,
+    out tsv.gz     fragments                    "Barcoded and aligned fragment file"  "fragments.tsv.gz",
+    out tsv.gz.tbi fragments_index              "Fragment file index"  "fragments.tsv.gz.tbi",
+    out csv        singlecell                   "Per-barcode fragment counts & metrics",
+    out bed        peaks                        "Bed file of all called peak locations",
+    out h5         filtered_peak_bc_matrix      "Filtered peak barcode matrix in hdf5 format",
+    out path       filtered_peak_bc_matrix_mex  "Filtered peak barcode matrix in mex format"  "filtered_peak_bc_matrix",
+    out path       analysis_csv                 "Directory of analysis files"  "analysis",
+    out html       web_summary                  "HTML file summarizing aggregation analysis ",
+    out h5         filtered_tf_bc_matrix        "Filtered tf barcode matrix in hdf5 format",
+    out path       filtered_tf_bc_matrix_mex    "Filtered tf barcode matrix in mex format"  "filtered_tf_bc_matrix",
+    out cloupe     cloupe                       "Loupe Cell Browser input file",
+    out csv        summary_csv                  "csv summarizing important metrics and values"  "summary.csv",
+    out json       summary                      "Summary of all data metrics",
+    out tsv        peak_annotation              "Annotation of peaks with genes",
+    out csv        aggregation_csv              "Csv of aggregation of libraries",
+)
+{
+    call ATAC_AGGR_PREFLIGHT as ATAC_AGGR_PREFLIGHT_LOCAL(
+        sample_id         = self.sample_id,
+        reference_path    = self.reference_path,
+        aggr_csv          = self.aggr_csv,
+        normalization     = self.normalization,
+        factorization     = self.factorization,
+        check_executables = false,
+    ) using (
+        local     = true,
+        preflight = true,
+    )
+
+    call ATAC_AGGR_PREFLIGHT(
+        sample_id         = self.sample_id,
+        reference_path    = self.reference_path,
+        aggr_csv          = self.aggr_csv,
+        normalization     = self.normalization,
+        factorization     = self.factorization,
+        check_executables = true,
+    ) using (
+        preflight = true,
+    )
+
+    call _LIBRARY_AGGREGATOR(
+        aggr_csv       = self.aggr_csv,
+        normalization  = self.normalization,
+        reference_path = self.reference_path,
+    )
+
+    call GENERATE_PEAK_MATRIX(
+        reference_path = self.reference_path,
+        fragments      = _LIBRARY_AGGREGATOR.fragments,
+        peaks          = _LIBRARY_AGGREGATOR.peaks,
+    )
+
+    call FILTER_PEAK_MATRIX(
+        num_analysis_bcs = null,
+        random_seed      = null,
+        cell_barcodes    = _LIBRARY_AGGREGATOR.cell_barcodes,
+        raw_matrix       = GENERATE_PEAK_MATRIX.raw_matrix,
+    )
+
+    call _SC_ATAC_ANALYZER(
+        peaks                   = _LIBRARY_AGGREGATOR.peaks,
+        reference_path          = self.reference_path,
+        filtered_peak_bc_matrix = FILTER_PEAK_MATRIX.filtered_matrix,
+        factorization           = self.factorization,
+        tsne_perplexity         = 30,
+        tsne_max_dims           = null,
+        tsne_input_pcs          = null,
+        tsne_max_iter           = null,
+        tsne_stop_lying_iter    = null,
+        tsne_mom_switch_iter    = null,
+        tsne_theta              = null,
+        random_seed             = null,
+        max_clusters            = 10,
+        neighbor_a              = null,
+        neighbor_b              = null,
+        graphclust_neighbors    = null,
+        num_components          = 15,
+        num_dr_bcs              = null,
+        num_dr_features         = null,
+    ) using (
+        disabled = self.no_secondary_analysis,
+    )
+
+    call CREATE_AGGR_WEBSUMMARY(
+        reference_path          = self.reference_path,
+        sample_id               = self.sample_id,
+        sample_desc             = self.sample_desc,
+        singlecell              = _LIBRARY_AGGREGATOR.singlecell,
+        summary_results         = _LIBRARY_AGGREGATOR.metrics,
+        library_info            = _LIBRARY_AGGREGATOR.library_info,
+        analysis                = _SC_ATAC_ANALYZER.analysis,
+        filtered_peak_bc_matrix = FILTER_PEAK_MATRIX.filtered_matrix,
+        debug                   = false,
+    )
+
+    call CLOUPE_PREPROCESS(
+        pipestance_type        = "SC_ATAC_AGGREGATOR_CS",
+        reference_path         = self.reference_path,
+        sample_id              = self.sample_id,
+        sample_desc            = self.sample_desc,
+        analysis               = _SC_ATAC_ANALYZER.analysis,
+        feature_barcode_matrix = _SC_ATAC_ANALYZER.feature_bc_matrix,
+        metrics_json           = null,
+        peaks                  = _LIBRARY_AGGREGATOR.peaks,
+        fragments_index        = _LIBRARY_AGGREGATOR.fragments_index,
+        aggregation_csv        = self.aggr_csv,
+        gem_group_index_json   = _LIBRARY_AGGREGATOR.gem_group_index_json,
+        no_secondary_analysis  = self.no_secondary_analysis,
+    )
+
+    call COPY_INPUT_OUTPUT(
+        fragments       = null,
+        fragments_index = null,
+        aggr_csv        = self.aggr_csv,
+    )
+
+    return (
+        peaks                       = _LIBRARY_AGGREGATOR.peaks,
+        filtered_peak_bc_matrix     = FILTER_PEAK_MATRIX.filtered_matrix,
+        filtered_peak_bc_matrix_mex = FILTER_PEAK_MATRIX.filtered_matrix_mex,
+        analysis_csv                = _SC_ATAC_ANALYZER.analysis_csv,
+        web_summary                 = CREATE_AGGR_WEBSUMMARY.web_summary,
+        filtered_tf_bc_matrix       = _SC_ATAC_ANALYZER.filtered_tf_bc_matrix,
+        filtered_tf_bc_matrix_mex   = _SC_ATAC_ANALYZER.filtered_tf_bc_matrix_mex,
+        cloupe                      = CLOUPE_PREPROCESS.output_for_cloupe,
+        summary                     = _LIBRARY_AGGREGATOR.metrics,
+        summary_csv                 = _LIBRARY_AGGREGATOR.metrics_csv,
+        fragments                   = _LIBRARY_AGGREGATOR.fragments,
+        fragments_index             = _LIBRARY_AGGREGATOR.fragments_index,
+        peak_annotation             = _SC_ATAC_ANALYZER.peak_annotation,
+        aggregation_csv             = COPY_INPUT_OUTPUT.aggr_csv,
+        singlecell                  = _LIBRARY_AGGREGATOR.singlecell,
+    )
+}

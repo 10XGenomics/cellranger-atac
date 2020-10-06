@@ -1,0 +1,48 @@
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+
+filetype pickle;
+filetype json;
+filetype csv;
+filetype bed;
+filetype tsv.gz;
+filetype tsv.gz.tbi;
+
+stage MERGE_ANALYSIS_METRICS(
+    in  string reference_path,
+    in  pickle library_info,
+    in  json[] metrics,
+    out json   metrics,
+    out csv    metrics_csv,
+    src py     "stages/common/merge_analysis_metrics",
+)
+
+stage REGENERATE_ANALYSIS_METRICS(
+    in  string     reference_path,
+    in  bed        peaks,
+    in  csv        cell_barcodes,
+    in  tsv.gz     fragments,
+    in  tsv.gz.tbi fragments_index,
+    out json       regenerated_metrics,
+    out csv        singlecell,
+    out csv        cell_barcodes,
+    src py         "stages/common/regenerate_analysis_metrics",
+) split (
+    in  string     contig,
+    out pickle     target_counts_by_barcode,
+) using (
+    mem_gb   = 4,
+    volatile = strict,
+)
+
+stage COPY_INPUT_OUTPUT(
+    in  tsv.gz     fragments,
+    in  tsv.gz.tbi fragments_index,
+    in  csv        aggr_csv,
+    out tsv.gz     fragments,
+    out tsv.gz.tbi fragments_index,
+    out csv        aggr_csv,
+    src py         "stages/common/copy_input_output",
+) split (
+)

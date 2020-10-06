@@ -1,0 +1,48 @@
+<div class="container">
+
+    <!-- Hero metrics -->
+    <div class="row">
+        <div class="col">
+            <div data-key="annotated_cells_spec1" data-component="Metric"></div>
+            <div data-key="annotated_cells_spec2" data-component="Metric"></div>
+        </div>
+        <div class="col">
+            <div data-key="median_fragments_per_cell_spec1" data-component="Metric"></div>
+            <div data-key="median_fragments_per_cell_spec2" data-component="Metric"></div>
+        </div>
+        <div class="col">
+            <div data-key="frac_fragments_overlapping_targets_spec1" data-component="Metric"></div>
+            <div data-key="frac_fragments_overlapping_targets_spec2" data-component="Metric"></div>
+            <div data-key="frac_cut_fragments_in_peaks" data-component="Metric"></div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col">
+            [[ include subtemplates/pipeline_info.html ]]
+        </div>
+        <div class="col">
+            [[ include subtemplates/sequencing_info.html ]]
+        </div>
+    </div>
+
+    [[ include subtemplates/barnyard.html ]]
+
+    [[ include subtemplates/cell_metrics_by.html ]]
+
+    [[ include subtemplates/clustering_by.html ]]
+
+    [[ include subtemplates/insert_sizes_lin_and_log.html ]]
+
+    [[ include subtemplates/targeting_debug.html ]]
+
+    [[ include subtemplates/peak_calling.html ]]
+
+    [[ include subtemplates/complexity_debug.html ]]
+
+    <!-- debug mode only -->
+    [[ include subtemplates/wasted_data.html ]]
+
+    [[ include subtemplates/master_table.html ]]
+
+</div>

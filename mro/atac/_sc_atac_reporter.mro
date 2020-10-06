@@ -1,0 +1,73 @@
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+@include "_sc_atac_reporter_stages.mro"
+
+pipeline _SC_ATAC_REPORTER(
+    in  string reference_path,
+    in  string barcode_whitelist,
+    in  json   bulk_complexity,
+    in  json   cell_calling_summary,
+    in  json   complexity_summary,
+    in  json   basic_summary,
+    in  json   peak_summary,
+    in  json   singlecell_results,
+    in  json   insert_summary,
+    in  json   downsample_info,
+    in  json   singlecell_complexity,
+    in  csv    singlecell,
+    in  csv    tss_relpos,
+    in  csv    ctcf_relpos,
+    in  string sample_id,
+    in  string sample_desc,
+    in  map[]  sample_def,
+    in  csv    sc_insert_sizes,
+    in  json   enrichment_results,
+    in  h5     filtered_peak_bc_matrix,
+    in  h5     analysis,
+    in  json   excluded_barcodes,
+    #
+    out json   summary,
+    out html   web_summary,
+    out csv    summary_csv,
+)
+{
+    call SUMMARIZE_REPORTS_SINGLECELL(
+        reference_path        = self.reference_path,
+        complexity_summary    = self.complexity_summary,
+        cell_calling_summary  = self.cell_calling_summary,
+        peak_results          = self.peak_summary,
+        basic_results         = self.basic_summary,
+        error_results_summary = null,
+        insert_summary        = self.insert_summary,
+        singlecell_results    = self.singlecell_results,
+        contam_results        = null,
+        downsample_info       = self.downsample_info,
+        enrichment_results    = self.enrichment_results,
+    )
+
+    call CREATE_WEBSUMMARY(
+        reference_path          = self.reference_path,
+        barcode_whitelist       = self.barcode_whitelist,
+        singlecell              = self.singlecell,
+        tss_relpos              = self.tss_relpos,
+        ctcf_relpos             = self.ctcf_relpos,
+        sample_id               = self.sample_id,
+        sample_desc             = self.sample_desc,
+        sample_def              = self.sample_def,
+        insert_sizes            = self.sc_insert_sizes,
+        summary_results         = SUMMARIZE_REPORTS_SINGLECELL.summary,
+        bulk_complexity         = self.bulk_complexity,
+        singlecell_complexity   = self.singlecell_complexity,
+        analysis                = self.analysis,
+        filtered_peak_bc_matrix = self.filtered_peak_bc_matrix,
+        excluded_barcodes       = self.excluded_barcodes,
+        debug                   = false,
+    )
+
+    return (
+        summary     = SUMMARIZE_REPORTS_SINGLECELL.summary,
+        web_summary = CREATE_WEBSUMMARY.web_summary,
+        summary_csv = SUMMARIZE_REPORTS_SINGLECELL.summary_csv,
+    )
+}

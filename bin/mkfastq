@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+#
+# Copyright (c) 2019 10x Genomics, Inc.  All rights reserved.
+#
+# Wrapper for running MAKE_FASTQS_CS with mrp, with appropriate
+# Cell Ranger ATAC Chromium settings.
+
+BARCODE_PATH=`echo  'from barcodes import barcode_whitelist_path;print barcode_whitelist_path("737K-cratac-v1")' | python`
+function implement_read_configuration {
+    TENX_BC_READ_TYPE=I2 \
+    TENX_BC_LENGTH=16 \
+    TENX_SI_READ_TYPE=I1 \
+    TENX_BARCODE_WHITELIST=$BARCODE_PATH
+}
+
+source _mkfastq

@@ -1,0 +1,78 @@
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+@include "_produce_cell_barcodes_stages.mro"
+
+pipeline _PRODUCE_CELL_BARCODES(
+    in  bed        peaks,
+    in  tsv.gz     fragments,
+    in  tsv.gz.tbi fragments_index,
+    in  string     reference_path,
+    in  string     barcode_whitelist,
+    in  map        force_cells,
+    out csv        cell_barcodes,
+    out csv        singlecell,
+    out json       cell_calling_summary,
+    out json       excluded_barcodes,
+    out json       fragment_lengths,
+    out json       covered_bases,
+)
+{
+    call REMOVE_LOW_TARGETING_BARCODES(
+        fragments       = self.fragments,
+        fragments_index = self.fragments_index,
+        peaks           = self.peaks,
+        reference_path  = self.reference_path,
+    )
+
+    call REMOVE_GEL_BEAD_DOUBLET_BARCODES(
+        fragments       = self.fragments,
+        fragments_index = self.fragments_index,
+        reference_path  = self.reference_path,
+        barcode_counts  = REMOVE_LOW_TARGETING_BARCODES.barcode_counts,
+    )
+
+    call REMOVE_BARCODE_MULTIPLETS(
+        fragments       = self.fragments,
+        fragments_index = self.fragments_index,
+        reference_path  = self.reference_path,
+        barcode_whitelist = self.barcode_whitelist,
+        barcode_counts = REMOVE_LOW_TARGETING_BARCODES.barcode_counts,
+    )
+
+    call MERGE_EXCLUDED_BARCODES(
+        barcode_exclusions = [
+            REMOVE_BARCODE_MULTIPLETS.barcode_multiplets,
+            REMOVE_GEL_BEAD_DOUBLET_BARCODES.gel_bead_doublet_barcodes,
+            REMOVE_LOW_TARGETING_BARCODES.low_targeting_barcodes,
+        ],
+    )
+
+    call DETECT_CELL_BARCODES(
+        fragments             = self.fragments,
+        fragments_index       = self.fragments_index,
+        barcode_whitelist     = self.barcode_whitelist,
+        force_cells           = self.force_cells,
+        excluded_barcodes     = MERGE_EXCLUDED_BARCODES.excluded_barcodes,
+        reference_path        = self.reference_path,
+        peaks                 = self.peaks,
+    )
+
+    call MERGE_SUMMARY_METRICS as MERGE_CELL_METRICS(
+        summary_jsons = [
+            REMOVE_LOW_TARGETING_BARCODES.low_targeting_summary,
+            REMOVE_GEL_BEAD_DOUBLET_BARCODES.gel_bead_doublet_summary,
+            REMOVE_BARCODE_MULTIPLETS.barcode_multiplets_summary,
+            DETECT_CELL_BARCODES.cell_calling_summary,
+        ],
+    )
+
+    return (
+        cell_barcodes        = DETECT_CELL_BARCODES.cell_barcodes,
+        excluded_barcodes    = MERGE_EXCLUDED_BARCODES.excluded_barcodes,
+        singlecell           = DETECT_CELL_BARCODES.singlecell,
+        cell_calling_summary = MERGE_CELL_METRICS.merged_summary,
+        fragment_lengths     = REMOVE_LOW_TARGETING_BARCODES.fragment_lengths,
+        covered_bases        = REMOVE_LOW_TARGETING_BARCODES.covered_bases,
+    )
+}

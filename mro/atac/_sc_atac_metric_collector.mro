@@ -1,0 +1,78 @@
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+@include "_sc_atac_metric_collector_stages.mro"
+
+pipeline _SC_ATAC_METRIC_COLLECTOR(
+    in  bam[]      read_paired_bam,
+    in  tsv.gz     fragments,
+    in  tsv.gz.tbi fragments_index,
+    in  bed        peaks,
+    in  string     reference_path         "this is the reference_path",
+    in  csv        cell_barcodes,
+    in  csv        singlecell_mapping,
+    in  csv        singlecell_cells,
+    out json       singlecell_results,
+    out csv        singlecell,
+    out json       enrichment_results,
+    out json       basic_summary,
+    out json       insert_summary,
+    out csv        insert_sizes,
+    out json       bulk_complexity,
+    out json       singlecell_complexity,
+    out json       complexity_summary,
+    out csv        tss_relpos,
+    out csv        ctcf_relpos,
+)
+{
+    call GENERATE_SINGLECELL_TARGETING(
+        fragments       = self.fragments,
+        fragments_index = self.fragments_index,
+        peaks           = self.peaks,
+        reference_path  = self.reference_path,
+    )
+
+    call MERGE_SINGLECELL_METRICS(
+        reference_path     = self.reference_path,
+        singlecell_mapping = self.singlecell_mapping,
+        singlecell_cells   = self.singlecell_cells,
+        singlecell_targets = GENERATE_SINGLECELL_TARGETING.singlecell,
+    )
+
+    call GENERATE_SEQUENCING_METRICS(
+        input = self.read_paired_bam,
+    )
+
+    call ESTIMATE_LIBRARY_COMPLEXITY(
+        sequencing_summary = GENERATE_SEQUENCING_METRICS.summary,
+        fragments          = self.fragments,
+        cell_barcodes      = self.cell_barcodes,
+    )
+
+    call REPORT_INSERT_SIZES(
+        fragments           = self.fragments,
+        reference_path      = self.reference_path,
+        exclude_non_nuclear = true,
+    )
+
+    call REPORT_TSS_CTCF(
+        tss_relpos  = GENERATE_SINGLECELL_TARGETING.tss_relpos,
+        ctcf_relpos = GENERATE_SINGLECELL_TARGETING.ctcf_relpos,
+    )
+
+    return (
+        ###
+        singlecell            = MERGE_SINGLECELL_METRICS.singlecell,
+        singlecell_results    = MERGE_SINGLECELL_METRICS.summary,
+        ###
+        enrichment_results    = REPORT_TSS_CTCF.summary_metrics,
+        basic_summary         = GENERATE_SEQUENCING_METRICS.summary,
+        insert_summary        = REPORT_INSERT_SIZES.insert_summary,
+        insert_sizes          = REPORT_INSERT_SIZES.insert_sizes,
+        bulk_complexity       = ESTIMATE_LIBRARY_COMPLEXITY.bulk_complexity,
+        singlecell_complexity = ESTIMATE_LIBRARY_COMPLEXITY.singlecell_complexity,
+        complexity_summary    = ESTIMATE_LIBRARY_COMPLEXITY.complexity_summary,
+        tss_relpos            = GENERATE_SINGLECELL_TARGETING.tss_relpos,
+        ctcf_relpos           = GENERATE_SINGLECELL_TARGETING.ctcf_relpos,
+    )
+}

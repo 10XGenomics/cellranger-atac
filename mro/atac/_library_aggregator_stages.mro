@@ -1,0 +1,64 @@
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+
+filetype csv;
+filetype bed;
+filetype tsv.gz;
+filetype tsv.gz.tbi;
+filetype pickle;
+filetype json;
+filetype html;
+filetype h5;
+
+stage SETUP_AGGR_SAMPLES(
+    in  csv    aggr_csv,
+    in  string normalization,
+    in  string reference_path,
+    out pickle library_info,
+    out map    gem_group_index,
+    out json   gem_group_index_json,
+    src py     "stages/aggr/setup_aggr_samples",
+) split (
+    in  int    n,
+) using (
+    volatile = strict,
+)
+
+stage NORMALIZE_LIBRARIES(
+    in  pickle     library_info,
+    in  string     reference_path,
+    out tsv.gz     fragments,
+    out tsv.gz.tbi fragments_index,
+    out csv        cell_barcodes,
+    out bool       skip_peakcalling,
+    out bed        peaks,
+    out json       normalization_metrics,
+    src py         "stages/aggr/normalize_libraries",
+) split (
+    in  int        n,
+)
+
+stage SELECT_PEAKS(
+    in  bool selector,
+    in  bed  peaks1,
+    in  bed  peaks2,
+    out bed  peaks,
+    src py   "stages/aggr/select_peaks",
+)
+
+stage CREATE_AGGR_WEBSUMMARY(
+    in  string reference_path,
+    in  json   summary_results,
+    in  pickle library_info,
+    in  string sample_id,
+    in  string sample_desc,
+    in  csv    singlecell,
+    in  bool   debug,
+    in  h5     filtered_peak_bc_matrix,
+    in  h5     analysis,
+    out html   web_summary,
+    src py     "stages/aggr/create_aggr_websummary",
+) using (
+    mem_gb = 16,
+)

@@ -1,0 +1,41 @@
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+
+filetype bedgraph;
+filetype pickle;
+filetype tsv.gz;
+filetype tsv.gz.tbi;
+filetype bed;
+filetype json;
+
+stage COUNT_CUT_SITES(
+    in  path       reference_path,
+    in  tsv.gz     fragments,
+    in  tsv.gz.tbi fragments_index,
+    out bedgraph   cut_sites,
+    out pickle     count_dict,
+    src py         "stages/processing/count_cut_sites",
+) split (
+    in  string     contig,
+) using (
+    # N.B. We explicitly bind the index file
+    volatile = strict,
+)
+
+stage DETECT_PEAKS(
+    in  bedgraph cut_sites,
+    in  path     reference_path,
+    in  pickle   count_dict,
+    out bed      peaks,
+    out json     peak_metrics,
+    src py       "stages/processing/detect_peaks",
+) split (
+    in  string   contig,
+    in  float[]  params,
+    in  float    threshold,
+) using (
+    mem_gb   = 6,
+    # N.B. We explicitly bind the index file
+    volatile = strict,
+)

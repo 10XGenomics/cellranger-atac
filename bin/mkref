@@ -1,0 +1,69 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import docopt
+from reference import ReferenceBuilder, STANDARD_GENOMES
+
+VERSION = "%s %s %s\n%s" % (os.getenv('TENX_PRODUCT', ''),
+                            os.getenv('TENX_SUBCMD', ''),
+                            os.getenv('TENX_VERSION', ''),
+                            os.getenv('TENX_COPYRIGHT', ''))
+
+__doc__ = """
+10x reference preparation tool for CellRanger-ATAC.
+
+Build a CellRanger-ATAC-compatible reference. 
+
+Currently we offer full track support for hg19, b37, GRCh38 and mm10.
+Note that hg19 and b37 are the same genome build, except hg19 has all
+chromosome names with prefix of "chr" while b37 doesn't.
+
+To build a custom genome reference, the user must provide the genome fasta
+files, as well as gene and regulatory annotation files. We currently do not 
+support making custom genome references involving mixed species. For more
+details and examples, please visit
+https://support.10xgenomics.com/single-cell-atac/software/pipelines/latest\
+/advanced/references
+
+Usage:
+    mkref GENOME [--config=PATH]
+    mkref -h | --help | --version
+
+Arguments:
+    GENOME      Name of the genome reference. 
+                New reference will be built as a new directory named <GENOME>
+                under the current working directory.
+ 
+Options:
+    -h --help   Show this message.
+    -c --config Configuration file to build a custom reference. 
+                Ignored when GENOME is one of the supported references: hg19,
+                b37, GRCh38 or mm10. See examples and format requirements at 
+                https://support.10xgenomics.com/single-cell-atac/software\
+/pipelines/latest/advanced/references
+    --version   Show version.
+----
+%s
+""" % VERSION
+
+def main():
+    args = docopt.docopt(__doc__, version=VERSION)
+
+    genome = args["GENOME"]
+    config = args['--config']
+
+    if genome not in STANDARD_GENOMES:
+        print("Non-standard genome name detected, building custom reference...\n".format(genome))
+
+    print(">>> Creating reference for {} <<<\n".format(genome))
+
+    reference_builder = ReferenceBuilder(genome, config)
+    reference_builder.build_reference()
+
+    print(">>> Reference successfully created! <<<\n")
+
+
+if __name__ == '__main__':
+    main()
+

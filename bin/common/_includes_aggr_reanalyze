@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+# Cell Ranger ATAC common docopt strings and options processing functions.
+#
+
+# specific to aggr 
+read -d '' DOCOPT_OPTIONS_FOOTER <<EOF
+    -h --help           Show this message.
+    --version           Show version.
+EOF

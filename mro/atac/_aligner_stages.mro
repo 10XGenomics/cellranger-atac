@@ -1,0 +1,72 @@
+#
+# Copyright (c) 2019 10x Genomics, Inc. All rights reserved.
+#
+
+filetype json;
+filetype bam;
+
+# SETUP_CHUNKS chunks up the input fastq data into sets of matched R1, R2, SI, and BC fastq files.
+# input_mode specifies how FASTQs were generated. There are two modes:
+#
+# 1. "BCL_PROCESSOR"
+#
+# FASTQs produced by the 10X BCL_PROCESSOR pipeline. This mode assumes the FASTQ files obey the internal
+# naming conventions and the reads have been interleaved into RA FASTQ files.
+#
+# 2. "ILMN_BCL2FASTQ"
+#
+# FASTQs produced directly by Illumina BCL2FASTQ v1.8.4. For this mode, BCL2FASTQ must be configured to emit the
+# index2 read, rather than using it for dual-index demultiplexing:
+#
+# configureBclToFastq.pl --no-eamss --use-bases-mask=Y100,I8,Y14,Y100 --input-dir=<basecalls_dir> \
+#     --output-dir=<output_dir> --sample-sheet=<sample_sheet.csv>
+#
+# The sample sheet must be formatted as per the BCL2FASTQ documentation (10 column csv), and must contain a row for
+# each sample index used. The sequencer must have been run in dual index mode, with the second index read (used to
+# read the 10X barcode) emitted as the R2 output file. The --use-bases-mask argument should be set to the read
+# length used.
+stage SETUP_CHUNKS(
+    in  string   sample_id        "id of the sample",
+    in  map[]    sample_def       "list of dictionary specifying input data",
+    in  string   input_mode       "configuration of the input fastqs",
+    in  map      downsample       "map specifies either subsample_rate (float) or gigabases (int)",
+    out map[]    chunks           "map has barcode, barcode_reverse_complement, sample_index, read1, read2, gem_group, and read_group fields",
+    out string[] read_groups      "list of strings representing read groups",
+    out json     downsample_info  "info about downsampling result",
+    src py       "stages/processing/setup_chunks",
+)
+
+# Trims adapter sequences from reads and massages fastq output into a fixed format (interleaved R1 file, etc.)
+stage TRIM_READS(
+    in  map[]  chunks,
+    in  string barcode_whitelist,
+    in  int    max_read_num,
+    in  map    trim_def,
+    in  map    adapters,
+    out map[]  chunks,
+    out json   bc_counts,
+    out json   lot_info,
+    out json   read_counts,
+    src py     "stages/processing/trim_reads",
+) split (
+    in  map    chunk,
+) using (
+    volatile = strict,
+)
+
+# Aligns the reads to the input reference, producing chunked bam files
+stage ALIGN_READS(
+    in  map[]  chunks,
+    in  string aligner,
+    in  string aligner_method,
+    in  string reference_path,
+    in  string read_group_sample,
+    in  int    num_threads,
+    out bam[],
+    src py     "stages/processing/align_reads",
+) split (
+    in  map    chunk,
+) using (
+    # N.B. No index files are generated for the bam
+    volatile = strict,
+)
