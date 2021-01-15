@@ -355,12 +355,12 @@ def main(args, outs):
                      read_generator_trim_info(trim_info_r2)))
 
     # open output read file, which will be interleaved
-    read_name = martian.make_path("read{}.fastq.lz4".format(file_number))
+    read_name = martian.make_path("read{}.fastq.gz".format(file_number))
     out_readfiles = [read_name]
     out_read_fastq = open_maybe_gzip(read_name, 'w')
 
     # open trimmed read file, which will be interleaved
-    trim_out_name = martian.make_path("TRIM{}.fastq.lz4".format(file_number))
+    trim_out_name = martian.make_path("TRIM{}.fastq.gz".format(file_number))
     out_trimfiles = [trim_out_name]
     out_trim_fastq = open_maybe_gzip(trim_out_name, 'w')
 
@@ -375,7 +375,7 @@ def main(args, outs):
 
     # open barcode file if there is one
     if have_barcode:
-        bc_name = martian.make_path("BC{}.fastq.lz4".format(file_number))
+        bc_name = martian.make_path("BC{}.fastq.gz".format(file_number))
         out_bc_fastq = open_maybe_gzip(bc_name, 'w')
         out_barcodefiles = [bc_name]
         barcode_read = None
@@ -392,7 +392,7 @@ def main(args, outs):
 
     # open sample_index file if there is one
     if have_sample_index:
-        si_name = martian.make_path("SI{}.fastq.lz4".format(file_number))
+        si_name = martian.make_path("SI{}.fastq.gz".format(file_number))
         out_si_fastq = open_maybe_gzip(si_name, 'w')
         si_in = open_maybe_gzip(chunk['sample_index'], 'r')
         sample_index_read = None
@@ -432,18 +432,18 @@ def main(args, outs):
         if read_num > max_read_num:
             read_num = 1
             file_number += 1
-            read_name = martian.make_path("read{}.fastq.lz4".format(file_number))
+            read_name = martian.make_path("read{}.fastq.gz".format(file_number))
             out_read_fastq.close()
             out_read_fastq = open_maybe_gzip(read_name, 'w')
             out_readfiles.append(read_name)
 
-            trim_out_name = martian.make_path("TRIM{}.fastq.lz4".format(file_number))
+            trim_out_name = martian.make_path("TRIM{}.fastq.gz".format(file_number))
             out_trim_fastq.close()
             out_trim_fastq = open_maybe_gzip(trim_out_name, 'w')
             out_trimfiles.append(trim_out_name)
 
             if have_barcode:
-                bc_name = martian.make_path("BC{}.fastq.lz4".format(file_number))
+                bc_name = martian.make_path("BC{}.fastq.gz".format(file_number))
                 out_bc_fastq.close()
                 out_bc_fastq = open_maybe_gzip(bc_name, 'w')
                 out_barcodefiles.append(bc_name)
@@ -451,7 +451,7 @@ def main(args, outs):
                 out_barcodefiles.append(None)
 
             if have_sample_index:
-                si_name = martian.make_path("SI{}.fastq.lz4".format(file_number))
+                si_name = martian.make_path("SI{}.fastq.gz".format(file_number))
                 out_si_fastq.close()
                 out_si_fastq = open_maybe_gzip(si_name, 'w')
                 out_sampleindex_files.append(si_name)
