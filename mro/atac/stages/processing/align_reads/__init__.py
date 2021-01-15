@@ -12,6 +12,7 @@ import tenkit.reference
 import martian
 import math
 from tools import ReferenceManager
+from tools import open_maybe_gzip
 
 __MRO__ = """
 stage ALIGN_READS(
@@ -38,7 +39,7 @@ def split(args):
     fastq_tests = [x['read1'] for x in args.chunks]
 
     for fastq_test in fastq_tests:
-        with open(fastq_test) as in_file:
+        with open_maybe_gzip(fastq_test) as in_file:
             reader = tk_fasta.read_generator_fastq(in_file)
             for name, read, qual in itertools.islice(reader, 10):
                 if len(read) < MIN_READ_LENGTH:
