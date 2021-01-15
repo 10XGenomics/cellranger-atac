@@ -212,7 +212,7 @@ def open_maybe_gzip(filename, mode="r"):
         return SubprocessStream([compressor, "-c", "-d", filename], mode="r")
     elif mode == "w":
         f = open(filename, "w")
-        return SubprocessStream([compressor, "-c"], stdout=f, mode="w")
+        return SubprocessStream([compressor, "-1", "-c"], stdout=f, mode="w")
     else:
         raise ValueError("Unsupported mode for compression: %s" % mode)
 
