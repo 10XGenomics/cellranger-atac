@@ -58,9 +58,9 @@ def bwa_align_unpaired(ref_fasta, read_fastq, out_name, algorithm='ALN', max_hit
 
     if algorithm == 'MEM':
         # Temp file names
-        sam_name = out_name + '.sam'
+        sam_name = out_name + '.sam.gz'
 
-        sam_out_file = open(sam_name, 'w')
+        sam_out_file = open_maybe_gzip(sam_name, 'w')
         log_subprocess.check_call(['bwa', 'mem', '-t', str(num_threads), '-M', '-R', read_group_header, ref_fasta, read_fastq], stdout=sam_out_file)
         sam_out_file.close()
 
